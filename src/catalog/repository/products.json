@@ -1,0 +1,79 @@
+[
+  {
+    "id": "cc789f85-1476-452a-8100-9e74502198e0",
+    "name": "Reloj Inteligente",
+    "description": "Reloj con pantalla AMOLED, monitoreo de ritmo cardíaco, GPS integrado y resistencia al agua hasta 50 metros. Autonomía de 7 días. Compatible con iOS y Android.",
+    "price": 250,
+    "tags": ["accessories"]
+  },
+  {
+    "id": "87e89b11-d319-446d-b9be-50adcca5224a",
+    "name": "Campera de Invierno",
+    "description": "Campera impermeable con relleno de pluma de ganso, capucha desmontable y bolsillos con cierre. Ideal para temperaturas bajo cero. Disponible en negro, azul marino y verde musgo.",
+    "price": 125,
+    "tags": ["clothing"]
+  },
+  {
+    "id": "4f18544b-70a5-4352-8e19-0d070f46745d",
+    "name": "Zapatillas Running",
+    "description": "Zapatillas ultralivianas con suela de gel de absorción de impacto y plantilla ergonómica. Ideales para corredores de distancia. Transpirables y lavables a máquina.",
+    "price": 210,
+    "tags": ["clothing"]
+  },
+  {
+    "id": "79bce3f3-935f-4912-8c62-0d2f3e059405",
+    "name": "Gafas de Sol Polarizadas",
+    "description": "Montura de titanio con lentes polarizados de categoría 3. Protección UV400, antirreflejo y resistentes a rayones. Incluye estuche rígido y paño de microfibra.",
+    "price": 70,
+    "tags": ["clothing"]
+  },
+  {
+    "id": "d27cf49f-b689-4a75-a249-d373e0330bb5",
+    "name": "Guitarra Acústica",
+    "description": "Guitarra de tapa maciza de abeto y aros de caoba. Sonido cálido y proyección excelente. Incluye funda acolchada, juego de cuerdas de repuesto y afinador digital.",
+    "price": 150,
+    "tags": ["accessories"]
+  },
+  {
+    "id": "1ca35e86-4b4c-4124-b6b5-076ba4134d0d",
+    "name": "Cámara Instantánea",
+    "description": "Cámara que imprime fotos en segundos al estilo retro. Compatible con película de color y blanco y negro. Flash integrado, espejo para selfies y visor óptico real.",
+    "price": 225,
+    "tags": ["accessories"]
+  },
+  {
+    "id": "631a3db5-ac07-492c-a994-8cd56923c112",
+    "name": "Cafetera de Cápsulas",
+    "description": "Prepara espresso, americano y cappuccino en menos de 30 segundos. Compatible con cápsulas universales. Depósito de 1.2 litros, apagado automático y modo ahorro de energía.",
+    "price": 40,
+    "tags": ["accessories"]
+  },
+  {
+    "id": "8757729a-c518-4356-8694-9e795a9b3237",
+    "name": "Pizza Artesanal",
+    "description": "Pizza con masa madre fermentada 48 horas, salsa de tomates San Marzano y mozzarella di bufala. Disponible en tres tamaños: individual, familiar y gigante. Cocción en horno a leña.",
+    "price": 20,
+    "tags": ["food"]
+  },
+  {
+    "id": "d4edfedb-dbe9-4dd9-aae8-009489394955",
+    "name": "Auriculares Inalámbricos",
+    "description": "Auriculares over-ear con cancelación activa de ruido, 30 horas de batería y conexión multipunto a 2 dispositivos. Plegables, con micrófono integrado y modo transparencia.",
+    "price": 190,
+    "tags": ["accessories"]
+  },
+  {
+    "id": "d3104128-1d14-4465-99d3-8ab9267c687b",
+    "name": "Scooter Eléctrico",
+    "description": "Scooter urbano con motor de 3000W, autonomía de 120 km y velocidad máxima de 80 km/h. Pantalla LCD, frenos de disco hidráulico y carga mediante enchufe doméstico.",
+    "price": 9000,
+    "tags": ["vehicles"]
+  },
+  {
+    "id": "d77f9ae6-e9a8-4a3e-86bd-b72af75cbc49",
+    "name": "Bicicleta de Montaña",
+    "description": "Cuadro de aluminio doble suspensión, frenos hidráulicos y 21 velocidades. Neumáticos todo terreno de 29 pulgadas. Lista para senderos técnicos y descenso.",
+    "price": 15000,
+    "tags": ["vehicles"]
+  }
+]

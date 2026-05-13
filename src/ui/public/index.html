@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>RetailStore</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f5f5f5; color: #333; }
+
+    header {
+      background: #1a1a2e; color: white; padding: 1rem 2rem;
+      display: flex; justify-content: space-between; align-items: center;
+      position: sticky; top: 0; z-index: 100;
+    }
+    header h1 { font-size: 1.4rem; }
+    .header-actions { display: flex; gap: .8rem; align-items: center; }
+    #orders-btn {
+      background: transparent; border: 1px solid rgba(255,255,255,.4); color: white;
+      padding: .5rem 1.2rem; border-radius: 20px; cursor: pointer; font-size: 1rem;
+    }
+    #orders-btn:hover { background: rgba(255,255,255,.1); }
+    #cart-btn {
+      background: #e94560; border: none; color: white;
+      padding: .5rem 1.2rem; border-radius: 20px; cursor: pointer;
+      font-size: 1rem; display: flex; align-items: center; gap: .5rem;
+    }
+    #cart-count {
+      background: white; color: #e94560;
+      border-radius: 50%; width: 22px; height: 22px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: .8rem; font-weight: bold;
+    }
+
+    main { max-width: 1200px; margin: 2rem auto; padding: 0 1rem; }
+
+    #filters { margin-bottom: 1.5rem; display: flex; gap: .5rem; flex-wrap: wrap; }
+    .tag-btn {
+      padding: .3rem .9rem; border-radius: 20px; border: 1px solid #ccc;
+      background: white; cursor: pointer; font-size: .85rem;
+    }
+    .tag-btn.active { background: #1a1a2e; color: white; border-color: #1a1a2e; }
+
+    #products {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+      gap: 1.5rem;
+    }
+    .product-card {
+      background: white; border-radius: 8px; overflow: hidden;
+      box-shadow: 0 2px 8px rgba(0,0,0,.08); transition: transform .2s;
+    }
+    .product-card:hover { transform: translateY(-3px); }
+    .product-img {
+      width: 100%; height: 180px; background: #e8e8e8;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 3rem;
+    }
+    .product-info { padding: 1rem; }
+    .product-name { font-weight: 600; margin-bottom: .3rem; }
+    .product-desc { font-size: .85rem; color: #666; margin-bottom: .8rem; line-height: 1.4; }
+    .product-footer { display: flex; justify-content: space-between; align-items: center; }
+    .product-price { font-weight: 700; font-size: 1.1rem; color: #1a1a2e; }
+    .add-btn {
+      background: #e94560; color: white; border: none;
+      padding: .4rem .9rem; border-radius: 6px; cursor: pointer;
+    }
+    .add-btn:hover { background: #c73652; }
+
+    /* Cart drawer */
+    #cart-overlay {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.4); z-index: 200;
+    }
+    #cart-drawer {
+      position: fixed; right: 0; top: 0; bottom: 0; width: 380px;
+      background: white; z-index: 201; display: flex; flex-direction: column;
+      box-shadow: -4px 0 20px rgba(0,0,0,.15); transform: translateX(100%);
+      transition: transform .3s;
+    }
+    #cart-drawer.open { transform: translateX(0); }
+    #cart-overlay.open { display: block; }
+
+    .drawer-header {
+      padding: 1.2rem 1.5rem; border-bottom: 1px solid #eee;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    .drawer-header h2 { font-size: 1.1rem; }
+    #close-cart { background: none; border: none; font-size: 1.4rem; cursor: pointer; }
+    #cart-items { flex: 1; overflow-y: auto; padding: 1rem 1.5rem; }
+    .cart-item {
+      display: flex; align-items: center; gap: 1rem;
+      padding: .8rem 0; border-bottom: 1px solid #f0f0f0;
+    }
+    .cart-item-info { flex: 1; }
+    .cart-item-name { font-weight: 500; font-size: .9rem; }
+    .cart-item-price { font-size: .85rem; color: #666; }
+    .remove-btn {
+      background: none; border: none; color: #e94560;
+      cursor: pointer; font-size: 1rem;
+    }
+    .cart-empty { text-align: center; padding: 3rem 1rem; color: #999; }
+    .drawer-footer { padding: 1.2rem 1.5rem; border-top: 1px solid #eee; }
+    .cart-total { display: flex; justify-content: space-between; font-weight: 700; margin-bottom: 1rem; }
+    #checkout-btn {
+      width: 100%; background: #1a1a2e; color: white; border: none;
+      padding: .9rem; border-radius: 8px; cursor: pointer; font-size: 1rem;
+    }
+    #checkout-btn:hover { background: #0f0f1e; }
+
+    /* Checkout modal */
+    #checkout-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 300;
+      align-items: center; justify-content: center;
+    }
+    #checkout-modal.open { display: flex; }
+    .modal-box {
+      background: white; border-radius: 12px; padding: 2rem;
+      width: 500px; max-width: 95vw; max-height: 90vh; overflow-y: auto;
+    }
+    .modal-box h2 { margin-bottom: 1.5rem; }
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+    .form-group { display: flex; flex-direction: column; gap: .3rem; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: .85rem; font-weight: 500; }
+    input {
+      padding: .6rem; border: 1px solid #ddd; border-radius: 6px;
+      font-size: .95rem;
+    }
+    input:focus { outline: none; border-color: #1a1a2e; }
+    .modal-actions { display: flex; gap: 1rem; margin-top: 1.5rem; }
+    .btn-primary {
+      flex: 1; background: #1a1a2e; color: white; border: none;
+      padding: .9rem; border-radius: 8px; cursor: pointer; font-size: 1rem;
+    }
+    .btn-secondary {
+      flex: 1; background: white; color: #333; border: 1px solid #ddd;
+      padding: .9rem; border-radius: 8px; cursor: pointer; font-size: 1rem;
+    }
+
+    /* Orders modal */
+    #orders-modal {
+      display: none; position: fixed; inset: 0;
+      background: rgba(0,0,0,.5); z-index: 300;
+      align-items: flex-start; justify-content: center; padding-top: 4rem;
+    }
+    #orders-modal.open { display: flex; }
+    .orders-box {
+      background: white; border-radius: 12px; padding: 2rem;
+      width: 700px; max-width: 95vw; max-height: 80vh; overflow-y: auto;
+    }
+    .orders-box h2 { margin-bottom: 1.5rem; display: flex; justify-content: space-between; align-items: center; }
+    .order-card {
+      border: 1px solid #e8e8e8; border-radius: 8px;
+      padding: 1rem 1.2rem; margin-bottom: 1rem;
+    }
+    .order-header { display: flex; justify-content: space-between; margin-bottom: .6rem; font-size: .9rem; }
+    .order-id { font-family: monospace; font-size: .8rem; color: #888; }
+    .order-total { font-weight: 700; color: #1a1a2e; }
+    .order-items { font-size: .85rem; color: #555; }
+    .order-item-row { display: flex; justify-content: space-between; padding: .2rem 0; }
+    .no-orders { text-align: center; padding: 3rem; color: #999; }
+
+    /* Toast */
+    #toast {
+      position: fixed; bottom: 2rem; right: 2rem;
+      background: #1a1a2e; color: white; padding: .8rem 1.5rem;
+      border-radius: 8px; z-index: 400; opacity: 0; transition: opacity .3s;
+      pointer-events: none;
+    }
+    #toast.show { opacity: 1; }
+
+    #loading { text-align: center; padding: 4rem; color: #999; font-size: 1.5rem; width: 100%; display: flex; justify-content: center; align-items: center; }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>RetailStore</h1>
+  <div class="header-actions">
+    <button id="orders-btn">Mis órdenes</button>
+    <button id="cart-btn">Carrito <span id="cart-count">0</span></button>
+  </div>
+</header>
+
+<main>
+  <div id="filters"></div>
+  <div id="products"><div id="loading">Cargando productos...</div></div>
+</main>
+
+<!-- Cart Drawer -->
+<div id="cart-overlay"></div>
+<div id="cart-drawer">
+  <div class="drawer-header">
+    <h2>Tu Carrito</h2>
+    <button id="close-cart">&times;</button>
+  </div>
+  <div id="cart-items"></div>
+  <div class="drawer-footer">
+    <div class="cart-total"><span>Total</span><span id="cart-total">$0.00</span></div>
+    <button id="checkout-btn">Comprar</button>
+  </div>
+</div>
+
+<!-- Checkout Modal -->
+<div id="checkout-modal">
+  <div class="modal-box">
+    <h2>Información de Envío</h2>
+    <form id="checkout-form">
+      <div class="form-row">
+        <div class="form-group"><label>Nombre</label><input name="firstName" required /></div>
+        <div class="form-group"><label>Apellido</label><input name="lastName" required /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full"><label>Email</label><input name="email" type="email" required /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group full"><label>Dirección</label><input name="address1" required /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Ciudad</label><input name="city" required /></div>
+        <div class="form-group"><label>Departamento</label><input name="state" required /></div>
+      </div>
+      <div class="form-row">
+        <div class="form-group"><label>Código postal</label><input name="zip" required /></div>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn-secondary" id="cancel-checkout">Cancelar</button>
+        <button type="submit" class="btn-primary">Confirmar pedido</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Orders Modal -->
+<div id="orders-modal">
+  <div class="orders-box">
+    <h2>Mis órdenes <button id="close-orders" style="background:none;border:none;font-size:1.4rem;cursor:pointer">&times;</button></h2>
+    <div id="orders-list"><div class="no-orders">Cargando...</div></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+  // Each customer gets a persistent ID stored in localStorage
+  const CUSTOMER_ID = localStorage.getItem('customerId') || (() => {
+    const id = 'user-' + Math.random().toString(36).slice(2, 10);
+    localStorage.setItem('customerId', id);
+    return id;
+  })();
+
+  function productIcon(_name) {
+    return '📦';
+  }
+
+  function cents(amount) {
+    return '$' + (amount / 100).toFixed(2);
+  }
+
+  function toast(msg) {
+    const el = document.getElementById('toast');
+    el.textContent = msg;
+    el.classList.add('show');
+    setTimeout(() => el.classList.remove('show'), 2500);
+  }
+
+  // ── Products ──────────────────────────────────────────────────────────────
+
+  let allProducts = [];
+  let activeTag = null;
+
+  async function loadProducts(tag = null) {
+    const qs = tag ? `?tags=${tag}` : '';
+    // GET /api/catalog/products → proxied to catalog service
+    const res = await fetch(`/api/catalog/products${qs}`);
+    allProducts = await res.json();
+    renderProducts(allProducts);
+  }
+
+  async function loadTags() {
+    // GET /api/catalog/tags → proxied to catalog service
+    const res = await fetch('/api/catalog/tags');
+    const tags = await res.json();
+    const container = document.getElementById('filters');
+    const all = document.createElement('button');
+    all.className = 'tag-btn active';
+    all.textContent = 'Todos';
+    all.onclick = () => { activeTag = null; setActiveTag(all); loadProducts(); };
+    container.appendChild(all);
+    tags.forEach(t => {
+      const btn = document.createElement('button');
+      btn.className = 'tag-btn';
+      btn.textContent = t.displayName || t.name;
+      btn.onclick = () => { activeTag = t.name; setActiveTag(btn); loadProducts(t.name); };
+      container.appendChild(btn);
+    });
+  }
+
+  function setActiveTag(active) {
+    document.querySelectorAll('.tag-btn').forEach(b => b.classList.remove('active'));
+    active.classList.add('active');
+  }
+
+  function renderProducts(products) {
+    const container = document.getElementById('products');
+    if (!products.length) { container.innerHTML = '<p style="color:#999">No se encontraron productos.</p>'; return; }
+    container.innerHTML = products.map(p => `
+      <div class="product-card">
+        <div class="product-img">${productIcon(p.name)}</div>
+        <div class="product-info">
+          <div class="product-name">${p.name}</div>
+          <div class="product-desc">${(p.description || '').slice(0, 80)}${p.description?.length > 80 ? '…' : ''}</div>
+          <div class="product-footer">
+            <span class="product-price">${cents(p.price)}</span>
+            <button class="add-btn" onclick="addToCart('${p.id}', ${p.price})">Agregar</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  // ── Cart ──────────────────────────────────────────────────────────────────
+
+  let cartItems = [];
+
+  async function loadCart() {
+    // GET /api/carts/{customerId} → proxied to cart service
+    const res = await fetch(`/api/carts/${CUSTOMER_ID}`);
+    const cart = await res.json();
+    cartItems = cart.items || [];
+    renderCart();
+  }
+
+  async function addToCart(itemId, unitPrice) {
+    // POST /api/carts/{customerId}/items → proxied to cart service
+    await fetch(`/api/carts/${CUSTOMER_ID}/items`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ itemId, quantity: 1, unitPrice }),
+    });
+    await loadCart();
+    toast('¡Agregado al carrito!');
+  }
+
+  async function removeFromCart(itemId) {
+    // DELETE /api/carts/{customerId}/items/{itemId} → proxied to cart service
+    await fetch(`/api/carts/${CUSTOMER_ID}/items/${itemId}`, { method: 'DELETE' });
+    await loadCart();
+  }
+
+  function renderCart() {
+    const container = document.getElementById('cart-items');
+    const total = cartItems.reduce((s, i) => s + i.unitPrice * i.quantity, 0);
+    document.getElementById('cart-count').textContent = cartItems.reduce((s, i) => s + i.quantity, 0);
+    document.getElementById('cart-total').textContent = cents(total);
+
+    if (!cartItems.length) {
+      container.innerHTML = '<div class="cart-empty">Tu carrito está vacío</div>';
+      return;
+    }
+    container.innerHTML = cartItems.map(i => {
+      const name = allProducts.find(p => p.id === i.itemId)?.name || i.itemId;
+      return `
+        <div class="cart-item">
+          <div class="cart-item-info">
+            <div class="cart-item-name">${name}</div>
+            <div class="cart-item-price">${i.quantity} × ${cents(i.unitPrice)}</div>
+          </div>
+          <button class="remove-btn" onclick="removeFromCart('${i.itemId}')">✕</button>
+        </div>
+      `;
+    }).join('');
+  }
+
+  // ── Checkout ──────────────────────────────────────────────────────────────
+
+  document.getElementById('checkout-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const data = Object.fromEntries(new FormData(e.target));
+
+    // POST /api/checkout/{customerId}/update — sync cart + shipping to checkout service
+    // ItemRequest expects: { id, name, quantity, price }
+    await fetch(`/api/checkout/${CUSTOMER_ID}/update`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        items: cartItems.map(i => ({
+          id: i.itemId,
+          name: allProducts.find(p => p.id === i.itemId)?.name || i.itemId,
+          quantity: i.quantity,
+          price: i.unitPrice,
+        })),
+        shippingAddress: data,
+      }),
+    });
+
+    // POST /api/checkout/{customerId}/submit — place order via checkout → orders service
+    const res = await fetch(`/api/checkout/${CUSTOMER_ID}/submit`, { method: 'POST' });
+    if (res.ok) {
+      const order = await res.json();
+      // Clear the cart — checkout only clears its Redis session, not the cart service
+      await fetch(`/api/carts/${CUSTOMER_ID}`, { method: 'DELETE' });
+      closeCheckout();
+      closeCart();
+      await loadCart();
+      toast(`¡Pedido realizado! ID: ${(order.orderId || order.id || '').slice(0, 8)}…`);
+    } else {
+      toast('Error al realizar el pedido. Intenta de nuevo.');
+    }
+  });
+
+  // ── UI controls ───────────────────────────────────────────────────────────
+
+  function openCart() {
+    document.getElementById('cart-drawer').classList.add('open');
+    document.getElementById('cart-overlay').classList.add('open');
+    loadCart();
+  }
+  function closeCart() {
+    document.getElementById('cart-drawer').classList.remove('open');
+    document.getElementById('cart-overlay').classList.remove('open');
+  }
+  function openCheckout() {
+    if (!cartItems.length) { toast('El carrito está vacío'); return; }
+    closeCart();
+    document.getElementById('checkout-modal').classList.add('open');
+  }
+  function closeCheckout() {
+    document.getElementById('checkout-modal').classList.remove('open');
+  }
+
+  // ── Orders ───────────────────────────────────────────────────────────────
+
+  async function openOrders() {
+    document.getElementById('orders-modal').classList.add('open');
+    const container = document.getElementById('orders-list');
+    container.innerHTML = '<div class="no-orders">Cargando…</div>';
+    try {
+      const res = await fetch('/api/orders');
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const orders = await res.json();
+      if (!orders || !orders.length) {
+        container.innerHTML = '<div class="no-orders">Sin órdenes aún.</div>';
+        return;
+      }
+      container.innerHTML = orders.map(o => {
+        const items = o.items || [];
+        const total = items.reduce((s, i) => s + (i.totalCost || 0), 0);
+        return `
+          <div class="order-card">
+            <div class="order-header">
+              <div>
+                <div><strong>${o.firstName} ${o.lastName}</strong> — ${o.email}</div>
+                <div class="order-id">${o.id}</div>
+                <div style="font-size:.8rem;color:#aaa">${new Date(o.createdDate).toLocaleString()}</div>
+              </div>
+              <div class="order-total">${cents(total)}</div>
+            </div>
+            <div class="order-items">
+              ${items.map(i => `
+                <div class="order-item-row">
+                  <span>${i.name || i.productId} × ${i.quantity}</span>
+                  <span>${cents(i.totalCost || 0)}</span>
+                </div>`).join('')}
+            </div>
+          </div>`;
+      }).join('');
+    } catch (err) {
+      container.innerHTML = `<div class="no-orders">Error al cargar órdenes: ${err.message}</div>`;
+    }
+  }
+
+  document.getElementById('orders-btn').onclick = openOrders;
+  document.getElementById('close-orders').onclick = () => document.getElementById('orders-modal').classList.remove('open');
+
+  document.getElementById('cart-btn').onclick = openCart;
+  document.getElementById('close-cart').onclick = closeCart;
+  document.getElementById('cart-overlay').onclick = closeCart;
+  document.getElementById('checkout-btn').onclick = openCheckout;
+  document.getElementById('cancel-checkout').onclick = () => { closeCheckout(); openCart(); };
+
+  // ── Init ──────────────────────────────────────────────────────────────────
+  loadTags();
+  loadProducts();
+  loadCart();
+</script>
+</body>
+</html>

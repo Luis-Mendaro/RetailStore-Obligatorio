@@ -1,0 +1,6 @@
+[
+  { "name": "accessories", "displayName": "Accesorios" },
+  { "name": "clothing", "displayName": "Ropa" },
+  { "name": "food", "displayName": "Comida" },
+  { "name": "vehicles", "displayName": "Vehículos" }
+]

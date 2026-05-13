@@ -1,0 +1,33 @@
+{
+  "name": "cart",
+  "$schema": "../../node_modules/nx/schemas/project-schema.json",
+  "projectType": "application",
+  "sourceRoot": "src/cart",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["{projectRoot}/app/**/*", "{projectRoot}/requirements.txt"],
+      "options": {
+        "command": "docker build -t cart ."
+      }
+    },
+    "test": {
+      "executor": "nx:run-commands",
+      "cache": true,
+      "inputs": ["{projectRoot}/app/**/*", "{projectRoot}/requirements.txt"],
+      "options": {
+        "command": "pip install -r requirements.txt && pytest app/"
+      }
+    },
+    "serve": {
+      "executor": "nx:run-commands",
+      "options": {
+        "command": "uvicorn app.main:app --reload --port 8080"
+      }
+    },
+    "manifest": {},
+    "helm": {}
+  },
+  "tags": ["service", "chart"]
+}
