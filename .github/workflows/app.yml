@@ -1,0 +1,131 @@
+name: App CI/CD
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: [develop, main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente de despliegue"
+        required: true
+        type: choice
+        options: [dev, test, prod]
+
+jobs:
+  code-scan:
+    name: Semgrep (SAST + calidad estática)
+    runs-on: ubuntu-latest
+    container:
+      image: semgrep/semgrep
+    steps:
+      - uses: actions/checkout@v4
+      - name: Semgrep
+        run: semgrep scan --config=auto --error --severity ERROR --sarif --output=semgrep-results.sarif ./src
+      - name: Subir reporte Semgrep
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: semgrep-report
+          path: semgrep-results.sarif
+
+  sca-secrets:
+    name: Trivy SCA + Gitleaks
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Trivy filesystem scan (SCA)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    name: Tests por servicio
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - service: catalog
+            path: src/catalog
+          - service: orders
+            path: src/orders
+          - service: cart
+            path: src/cart
+          - service: checkout
+            path: src/checkout
+          - service: admin
+            path: src/admin
+          - service: ui
+            path: src/ui
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.service == 'catalog' || matrix.service == 'orders'
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - if: matrix.service == 'catalog' || matrix.service == 'orders'
+        run: go test ./...
+        working-directory: ${{ matrix.path }}
+      - if: matrix.service == 'checkout' || matrix.service == 'admin' || matrix.service == 'ui'
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - if: matrix.service == 'admin' || matrix.service == 'ui'
+        run: npm install && npm test --if-present
+        working-directory: ${{ matrix.path }}
+      - if: matrix.service == 'checkout'
+        run: corepack enable && yarn install && yarn test
+        working-directory: ${{ matrix.path }}
+      - if: matrix.service == 'cart'
+        run: echo "sin tests unitarios todavia, cubierto por las pruebas funcionales del pipeline (ver Dia 5)"
+
+  build-scan-push:
+    name: Build, image scan y push a ECR
+    if: github.event_name == 'workflow_dispatch'
+    needs: [code-scan, sca-secrets, test]
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [catalog, orders, cart, checkout, admin, ui]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build imagen local
+        run: docker build -t retailstore-${{ matrix.service }}:${{ github.sha }} ./src/${{ matrix.service }}
+      - name: Trivy image scan (antes de publicar)
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: retailstore-${{ matrix.service }}:${{ github.sha }}
+          severity: CRITICAL,HIGH
+          exit-code: "1"
+          ignore-unfixed: true
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+      - name: Login a ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Push a ECR
+        run: |
+          docker tag retailstore-${{ matrix.service }}:${{ github.sha }} ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}-${{ github.event.inputs.environment }}:${{ github.sha }}
+          docker push ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}-${{ github.event.inputs.environment }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy a ECS
+    if: github.event_name == 'workflow_dispatch'
+    needs: [build-scan-push]
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo "pendiente - se completa en el Dia 4 cuando exista la infraestructura Terraform"
