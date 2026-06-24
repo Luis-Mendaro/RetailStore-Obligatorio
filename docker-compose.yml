@@ -4,7 +4,7 @@ services:
     image: postgres:16
     environment:
       POSTGRES_USER: retail_user
-      POSTGRES_PASSWORD: retailpassword
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
       POSTGRES_DB: orders
     volumes:
       - db-data:/var/lib/postgresql/data
@@ -26,7 +26,7 @@ services:
       RETAIL_CATALOG_PERSISTENCE_ENDPOINT: db:5432
       RETAIL_CATALOG_PERSISTENCE_DB_NAME: catalogdb
       RETAIL_CATALOG_PERSISTENCE_USER: retail_user
-      RETAIL_CATALOG_PERSISTENCE_PASSWORD: retailpassword
+      RETAIL_CATALOG_PERSISTENCE_PASSWORD: ${DB_PASSWORD}
     depends_on:
       - db
 
@@ -39,7 +39,7 @@ services:
       CART_POSTGRES_PORT: "5432"
       CART_POSTGRES_DB: cartdb
       CART_POSTGRES_USER: retail_user
-      CART_POSTGRES_PASSWORD: retailpassword
+      CART_POSTGRES_PASSWORD: ${DB_PASSWORD}
       PORT: "8080"
     depends_on:
       - db
@@ -52,7 +52,7 @@ services:
       RETAIL_ORDERS_PERSISTENCE_ENDPOINT: db:5432
       RETAIL_ORDERS_PERSISTENCE_NAME: orders
       RETAIL_ORDERS_PERSISTENCE_USERNAME: retail_user
-      RETAIL_ORDERS_PERSISTENCE_PASSWORD: retailpassword
+      RETAIL_ORDERS_PERSISTENCE_PASSWORD: ${DB_PASSWORD}
     depends_on:
       - db
 
@@ -90,10 +90,10 @@ services:
       DB_HOST: db
       DB_PORT: "5432"
       DB_USER: retail_user
-      DB_PASSWORD: retailpassword
-      ADMIN_USERNAME: admin
-      ADMIN_PASSWORD: admin
-      ADMIN_JWT_SECRET: change-me-in-production
+      DB_PASSWORD: ${DB_PASSWORD}
+      ADMIN_USERNAME: ${ADMIN_USERNAME}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      ADMIN_JWT_SECRET: ${ADMIN_JWT_SECRET}
     ports:
       - "8081:8080"
     depends_on:
