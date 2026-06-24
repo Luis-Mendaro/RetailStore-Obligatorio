@@ -10,6 +10,7 @@ Aplicación de e-commerce basada en microservicios. Permite explorar un catálog
 ## Inicio rápido
 
 ```bash
+cp .env.example .env   # completar con tus propios valores
 docker compose up --build
 ```
 
@@ -18,7 +19,7 @@ docker compose up --build
 | Tienda   | http://localhost:8080 |
 | Admin    | http://localhost:8081 |
 
-Credenciales del admin por defecto: `admin` / `admin`
+Las credenciales del admin se definen en `.env` (`ADMIN_USERNAME` / `ADMIN_PASSWORD`), no hay valores por defecto en el repositorio.
 
 ## Comandos útiles
 
@@ -131,11 +132,11 @@ docker compose logs -f <servicio>
 | `RETAIL_UI_ENDPOINTS_ORDERS`    | URL del servicio orders      | `http://orders:8080`  |
 
 ### Catalog / Orders / Cart
-| Variable                               | Descripción           | Default          |
-|----------------------------------------|-----------------------|------------------|
-| `RETAIL_CATALOG_PERSISTENCE_PROVIDER`  | Tipo de persistencia  | `postgres`       |
-| `RETAIL_CATALOG_PERSISTENCE_ENDPOINT`  | Host:Puerto de la DB  | `db:5432`        |
-| `DB_PASSWORD`                          | Contraseña PostgreSQL | `retailpassword` |
+| Variable                               | Descripción           | Default                      |
+|----------------------------------------|-----------------------|-------------------------------|
+| `RETAIL_CATALOG_PERSISTENCE_PROVIDER`  | Tipo de persistencia  | `postgres`                    |
+| `RETAIL_CATALOG_PERSISTENCE_ENDPOINT`  | Host:Puerto de la DB  | `db:5432`                     |
+| `DB_PASSWORD`                          | Contraseña PostgreSQL | _(definida en `.env`, sin default)_ |
 
 ### Checkout
 | Variable                                   | Descripción              | Default               |
@@ -145,11 +146,13 @@ docker compose logs -f <servicio>
 | `RETAIL_CHECKOUT_ENDPOINTS_ORDERS`         | URL del servicio orders  | `http://orders:8080`  |
 
 ### Admin
-| Variable            | Descripción                | Default                   |
-|---------------------|----------------------------|---------------------------|
-| `ADMIN_USERNAME`    | Usuario administrador      | `admin`                   |
-| `ADMIN_PASSWORD`    | Contraseña administrador   | `admin`                   |
-| `ADMIN_JWT_SECRET`  | Secreto para tokens JWT    | `change-me-in-production` |
+| Variable            | Descripción                | Default                              |
+|---------------------|----------------------------|---------------------------------------|
+| `ADMIN_USERNAME`    | Usuario administrador      | _(definida en `.env`, sin default)_   |
+| `ADMIN_PASSWORD`    | Contraseña administrador   | _(definida en `.env`, sin default)_   |
+| `ADMIN_JWT_SECRET`  | Secreto para tokens JWT    | _(definida en `.env`, sin default)_   |
+
+Ver `.env.example` para la lista completa de variables requeridas y sus valores de ejemplo.
 
 ---
 
