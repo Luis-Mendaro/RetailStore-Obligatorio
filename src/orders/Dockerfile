@@ -1,9 +1,14 @@
-FROM golang:1.24
+FROM golang:1.24-alpine AS builder
 WORKDIR /app
-COPY . .
+COPY go.mod go.sum ./
 RUN go mod download
-RUN go build -o orders .
-RUN useradd -m appuser && chown -R appuser:appuser /app
+COPY . .
+RUN CGO_ENABLED=0 go build -o orders .
+
+FROM alpine:3.19
+RUN addgroup -S app && adduser -S app -G app
+WORKDIR /app
+COPY --from=builder /app/orders .
+USER app
 EXPOSE 8080
-USER appuser
 CMD ["./orders"]
