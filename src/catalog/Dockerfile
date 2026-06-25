@@ -3,5 +3,7 @@ WORKDIR /app
 COPY . .
 RUN go mod download
 RUN go build -o catalog .
+RUN useradd -m appuser && chown -R appuser:appuser /app
 EXPOSE 8080
+USER appuser
 CMD ["./catalog"]
