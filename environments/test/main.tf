@@ -202,3 +202,24 @@ module "ecs_service_ui" {
     { name = "RETAIL_UI_ENDPOINTS_ORDERS", value = "http://${module.ecs_service_l1["orders"].endpoint_dns_name}" },
   ]
 }
+
+module "cloudwatch" {
+  source = "../../modules/cloudwatch"
+
+  app_name                = "retailstore-ui"
+  environment             = var.environment
+  cluster_name            = module.ecs_cluster.cluster_name
+  service_name            = module.ecs_service_ui.service_name
+  alb_arn_suffix          = module.ecs_service_ui.alb_arn_suffix
+  target_group_arn_suffix = module.ecs_service_ui.target_group_arn_suffix
+  aws_region              = var.aws_region
+  alarm_email             = var.alarm_email
+}
+
+module "lambda_alert" {
+  source             = "../../modules/lambda_alert"
+  function_name      = "retailstore-alert-handler-${var.environment}"
+  environment        = var.environment
+  execution_role_arn = data.aws_iam_role.lab_role.arn
+  sns_topic_arn      = module.cloudwatch.sns_topic_arn
+}

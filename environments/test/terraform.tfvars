@@ -8,3 +8,4 @@ lab_role_name      = "LabRole"
 task_cpu           = 512
 task_memory        = 1024
 desired_count      = 1
+alarm_email        = ""
