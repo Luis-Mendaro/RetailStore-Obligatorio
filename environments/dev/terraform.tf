@@ -9,7 +9,7 @@ terraform {
   }
 
   backend "s3" {
-    bucket  = "CAMBIAR-nombre-bucket-tfstate" # completar con el bucket S3 real antes de hacer init
+    bucket  = "retailstore-obligatorio-lm-terraform-state"
     key     = "dev/terraform.tfstate"
     region  = "us-east-1"
     encrypt = true
