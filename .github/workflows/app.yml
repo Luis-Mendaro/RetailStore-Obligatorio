@@ -127,5 +127,39 @@ jobs:
     if: github.event_name == 'workflow_dispatch'
     needs: [build-scan-push]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        service: [catalog, orders, cart, checkout, admin, ui]
+    env:
+      ENVIRONMENT: ${{ github.event.inputs.environment }}
     steps:
-      - run: echo "pendiente - se completa en el Dia 4 cuando exista la infraestructura Terraform"
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+      - name: Login a ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Registrar nueva revision de task definition con la imagen recien pusheada
+        env:
+          IMAGE_URI: ${{ steps.login-ecr.outputs.registry }}/retailstore-${{ matrix.service }}-${{ github.event.inputs.environment }}:${{ github.sha }}
+        run: |
+          aws ecs describe-task-definition --task-definition ${{ matrix.service }} --query 'taskDefinition' \
+            | jq --arg IMAGE "$IMAGE_URI" '
+                .containerDefinitions[0].image = $IMAGE
+                | del(.taskDefinitionArn, .revision, .status, .requiresAttributes, .compatibilities, .registeredAt, .registeredBy)
+              ' > new-task-def.json
+          aws ecs register-task-definition --cli-input-json file://new-task-def.json
+      - name: Actualizar servicio ECS y esperar a que estabilice
+        run: |
+          aws ecs update-service \
+            --cluster retailstore-${{ env.ENVIRONMENT }} \
+            --service ${{ matrix.service }} \
+            --task-definition ${{ matrix.service }} \
+            --force-new-deployment
+          aws ecs wait services-stable \
+            --cluster retailstore-${{ env.ENVIRONMENT }} \
+            --services ${{ matrix.service }}
