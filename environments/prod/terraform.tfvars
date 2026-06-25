@@ -1,0 +1,10 @@
+environment        = "prod"
+aws_region         = "us-east-1"
+vpc_cidr_block     = "10.2.0.0/16"
+public_subnets     = ["10.2.1.0/24", "10.2.2.0/24"]
+private_subnets    = ["10.2.11.0/24", "10.2.12.0/24"]
+availability_zones = ["us-east-1a", "us-east-1b"]
+lab_role_name      = "LabRole"
+task_cpu           = 1024
+task_memory        = 2048
+desired_count      = 2
