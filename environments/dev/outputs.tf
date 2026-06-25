@@ -1,11 +1,11 @@
 output "ui_url" {
   description = "URL pública de la tienda (ui)"
-  value       = "http://${module.ecs_service["ui"].alb_dns_name}"
+  value       = "http://${module.ecs_service_ui.alb_dns_name}"
 }
 
 output "admin_url" {
   description = "URL pública del panel de administración"
-  value       = "http://${module.ecs_service["admin"].alb_dns_name}"
+  value       = "http://${module.ecs_service_l1["admin"].alb_dns_name}"
 }
 
 output "ecr_repository_urls" {

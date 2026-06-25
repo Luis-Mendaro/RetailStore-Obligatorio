@@ -1,14 +1,21 @@
+locals {
+  # Servicios internos que hablan un protocolo binario (Postgres, Redis) van
+  # detras de un NLB (Network Load Balancer); el resto (HTTP) detras de un ALB,
+  # publico si var.public = true, interno si no.
+  use_nlb = !var.public && var.internal_protocol == "TCP"
+}
+
 resource "aws_security_group" "alb" {
-  count       = var.public ? 1 : 0
+  count       = local.use_nlb ? 0 : 1
   name        = "${var.app_name}-alb-sg"
-  description = "Allow HTTP to ALB"
+  description = "Trafico permitido hacia el load balancer de ${var.app_name}"
   vpc_id      = var.vpc_id
 
   ingress {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    cidr_blocks = var.public ? ["0.0.0.0/0"] : [var.vpc_cidr_block]
   }
 
   egress {
@@ -29,7 +36,7 @@ resource "aws_security_group" "ecs_tasks" {
   vpc_id      = var.vpc_id
 
   dynamic "ingress" {
-    for_each = var.public ? [1] : []
+    for_each = local.use_nlb ? [] : [1]
     content {
       from_port       = var.container_port
       to_port         = var.container_port
@@ -38,8 +45,10 @@ resource "aws_security_group" "ecs_tasks" {
     }
   }
 
+  # Los NLB no tienen security group propio: el trafico llega con la IP
+  # original del cliente, por eso se filtra directo por el CIDR de la VPC.
   dynamic "ingress" {
-    for_each = var.public ? [] : [1]
+    for_each = local.use_nlb ? [1] : []
     content {
       from_port   = var.container_port
       to_port     = var.container_port
@@ -61,12 +70,12 @@ resource "aws_security_group" "ecs_tasks" {
 }
 
 resource "aws_lb" "this" {
-  count              = var.public ? 1 : 0
+  count              = local.use_nlb ? 0 : 1
   name               = "${var.app_name}-alb"
-  internal           = false
+  internal           = !var.public
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb[0].id]
-  subnets            = var.public_subnet_ids
+  subnets            = var.public ? var.public_subnet_ids : var.private_subnet_ids
 
   tags = {
     environment = var.environment
@@ -74,7 +83,7 @@ resource "aws_lb" "this" {
 }
 
 resource "aws_lb_target_group" "this" {
-  count       = var.public ? 1 : 0
+  count       = local.use_nlb ? 0 : 1
   name        = "${var.app_name}-tg"
   port        = var.container_port
   protocol    = "HTTP"
@@ -94,7 +103,7 @@ resource "aws_lb_target_group" "this" {
 }
 
 resource "aws_lb_listener" "http" {
-  count             = var.public ? 1 : 0
+  count             = local.use_nlb ? 0 : 1
   load_balancer_arn = aws_lb.this[0].arn
   port              = 80
   protocol          = "HTTP"
@@ -105,17 +114,47 @@ resource "aws_lb_listener" "http" {
   }
 }
 
-resource "aws_service_discovery_service" "this" {
-  count = var.public ? 0 : 1
-  name  = var.app_name
+resource "aws_lb" "nlb" {
+  count              = local.use_nlb ? 1 : 0
+  name               = "${var.app_name}-nlb"
+  internal           = true
+  load_balancer_type = "network"
+  subnets            = var.private_subnet_ids
 
-  dns_config {
-    namespace_id = var.service_discovery_namespace_id
-    dns_records {
-      ttl  = 10
-      type = "A"
-    }
-    routing_policy = "MULTIVALUE"
+  tags = {
+    environment = var.environment
+  }
+}
+
+resource "aws_lb_target_group" "nlb" {
+  count       = local.use_nlb ? 1 : 0
+  name        = "${var.app_name}-tg"
+  port        = var.container_port
+  protocol    = "TCP"
+  vpc_id      = var.vpc_id
+  target_type = "ip"
+
+  health_check {
+    protocol            = "TCP"
+    healthy_threshold   = 2
+    unhealthy_threshold = 3
+    interval            = 30
+  }
+
+  tags = {
+    environment = var.environment
+  }
+}
+
+resource "aws_lb_listener" "nlb" {
+  count             = local.use_nlb ? 1 : 0
+  load_balancer_arn = aws_lb.nlb[0].arn
+  port              = var.container_port
+  protocol          = "TCP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = aws_lb_target_group.nlb[0].arn
   }
 }
 
@@ -178,23 +217,13 @@ resource "aws_ecs_service" "this" {
     assign_public_ip = false
   }
 
-  dynamic "load_balancer" {
-    for_each = var.public ? [1] : []
-    content {
-      target_group_arn = aws_lb_target_group.this[0].arn
-      container_name   = var.app_name
-      container_port   = var.container_port
-    }
+  load_balancer {
+    target_group_arn = local.use_nlb ? aws_lb_target_group.nlb[0].arn : aws_lb_target_group.this[0].arn
+    container_name   = var.app_name
+    container_port   = var.container_port
   }
 
-  dynamic "service_registries" {
-    for_each = var.public ? [] : [1]
-    content {
-      registry_arn = aws_service_discovery_service.this[0].arn
-    }
-  }
-
-  depends_on = [aws_lb_listener.http]
+  depends_on = [aws_lb_listener.http, aws_lb_listener.nlb]
 
   tags = {
     environment = var.environment

@@ -70,15 +70,15 @@ variable "aws_region" {
 }
 
 variable "public" {
-  description = "Si es true, el servicio queda detrás de un ALB público. Si es false, se registra en Cloud Map para resolverse solo dentro de la red interna (igual que en docker-compose)."
+  description = "Si es true, el servicio queda detrás de un ALB público. Si es false, queda detrás de un load balancer interno (ALB o NLB segun internal_protocol), igual de alcance que la red interna que tenían en docker-compose."
   type        = bool
   default     = false
 }
 
-variable "service_discovery_namespace_id" {
-  description = "ID del namespace de Cloud Map (requerido si public = false)"
+variable "internal_protocol" {
+  description = "Protocolo del servicio cuando public = false: HTTP (ALB interno) o TCP (NLB interno, para Postgres/Redis)"
   type        = string
-  default     = null
+  default     = "HTTP"
 }
 
 variable "vpc_cidr_block" {

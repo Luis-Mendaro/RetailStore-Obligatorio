@@ -28,8 +28,3 @@ variable "availability_zones" {
   type        = list(string)
 }
 
-variable "service_discovery_namespace" {
-  description = "Nombre del namespace DNS privado para Cloud Map (descubrimiento entre microservicios)"
-  type        = string
-  default     = "retailstore.local"
-}

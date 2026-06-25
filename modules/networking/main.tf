@@ -104,15 +104,3 @@ resource "aws_route_table_association" "private_subnet_association" {
   subnet_id      = aws_subnet.private_subnet[count.index].id
   route_table_id = aws_route_table.private_route_table.id
 }
-
-# Cloud Map: equivalente AWS de la red interna que los microservicios
-# ya usaban en docker-compose para resolverse entre si por nombre.
-resource "aws_service_discovery_private_dns_namespace" "internal" {
-  name = var.service_discovery_namespace
-  vpc  = aws_vpc.main.id
-
-  tags = {
-    name        = var.service_discovery_namespace
-    environment = var.environment
-  }
-}
