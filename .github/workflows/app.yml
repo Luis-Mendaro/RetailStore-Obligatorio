@@ -107,11 +107,25 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [catalog, orders, cart, checkout, admin, ui]
+        include:
+          - service: catalog
+            path: src/catalog
+          - service: orders
+            path: src/orders
+          - service: cart
+            path: src/cart
+          - service: checkout
+            path: src/checkout
+          - service: admin
+            path: src/admin
+          - service: ui
+            path: src/ui
+          - service: db
+            path: db
     steps:
       - uses: actions/checkout@v4
       - name: Build imagen local
-        run: docker build -t retailstore-${{ matrix.service }}:${{ github.sha }} ./src/${{ matrix.service }}
+        run: docker build -t retailstore-${{ matrix.service }}:${{ github.sha }} ./${{ matrix.path }}
       # No bloqueante por el mismo motivo que sca-secrets: son CVEs de
       # dependencias de la app de partida (no modificable por consigna),
       # quedan documentadas como riesgo aceptado en vez de bloquear el deploy.
@@ -152,7 +166,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        service: [catalog, orders, cart, checkout, admin, ui]
+        service: [catalog, orders, cart, checkout, admin, ui, db]
     env:
       ENVIRONMENT: ${{ github.event.inputs.environment }}
     steps:
