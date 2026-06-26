@@ -8,4 +8,4 @@ lab_role_name      = "LabRole"
 task_cpu           = 1024
 task_memory        = 2048
 desired_count      = 2
-alarm_email        = ""
+alarm_email        = "securedev.lm@gmail.com"
