@@ -8,4 +8,5 @@
 secrets.auto.tfvars
 crash.log
 crash.*.log
+modules/lambda_alert/lambda_alert.zip
 PROYECTO.md
