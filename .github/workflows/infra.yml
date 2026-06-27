@@ -1,0 +1,53 @@
+name: Infra CI/CD
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Ambiente de infraestructura"
+        required: true
+        type: choice
+        options: [dev, test, prod]
+
+jobs:
+  terraform:
+    name: Terraform ${{ github.event.inputs.environment }}
+    runs-on: ubuntu-latest
+    env:
+      TF_VAR_db_password: ${{ secrets.TF_VAR_DB_PASSWORD }}
+      TF_VAR_admin_username: ${{ secrets.TF_VAR_ADMIN_USERNAME }}
+      TF_VAR_admin_password: ${{ secrets.TF_VAR_ADMIN_PASSWORD }}
+      TF_VAR_admin_jwt_secret: ${{ secrets.TF_VAR_ADMIN_JWT_SECRET }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Terraform Init
+        run: terraform init
+        working-directory: environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive
+        working-directory: environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Validate
+        run: terraform validate
+        working-directory: environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Plan
+        run: terraform plan -var-file="terraform.tfvars"
+        working-directory: environments/${{ github.event.inputs.environment }}
+
+      - name: Terraform Apply
+        run: terraform apply -auto-approve -var-file="terraform.tfvars"
+        working-directory: environments/${{ github.event.inputs.environment }}
