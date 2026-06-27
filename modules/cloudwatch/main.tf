@@ -29,7 +29,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_cpu_high" {
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
-  tags = { environment = var.environment }
+  tags          = { environment = var.environment }
 }
 
 resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
@@ -49,7 +49,7 @@ resource "aws_cloudwatch_metric_alarm" "ecs_memory_high" {
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
-  tags = { environment = var.environment }
+  tags          = { environment = var.environment }
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_5xx_errors" {
@@ -69,7 +69,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_5xx_errors" {
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
-  tags = { environment = var.environment }
+  tags          = { environment = var.environment }
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
@@ -89,7 +89,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_unhealthy_hosts" {
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
-  tags = { environment = var.environment }
+  tags          = { environment = var.environment }
 }
 
 resource "aws_cloudwatch_metric_alarm" "alb_response_time" {
@@ -109,7 +109,7 @@ resource "aws_cloudwatch_metric_alarm" "alb_response_time" {
   }
   alarm_actions = [aws_sns_topic.alarms.arn]
   ok_actions    = [aws_sns_topic.alarms.arn]
-  tags = { environment = var.environment }
+  tags          = { environment = var.environment }
 }
 
 resource "aws_cloudwatch_dashboard" "this" {
@@ -117,11 +117,11 @@ resource "aws_cloudwatch_dashboard" "this" {
   dashboard_body = jsonencode({
     widgets = [
       {
-        type   = "text"
-        x      = 0
-        y      = 0
-        width  = 24
-        height = 1
+        type       = "text"
+        x          = 0
+        y          = 0
+        width      = 24
+        height     = 1
         properties = { markdown = "## ${var.app_name} — ${var.environment}" }
       },
       {
@@ -131,12 +131,12 @@ resource "aws_cloudwatch_dashboard" "this" {
         width  = 12
         height = 6
         properties = {
-          title   = "ECS CPU Utilization"
-          region  = var.aws_region
-          period  = 300
-          stat    = "Average"
-          view    = "timeSeries"
-          metrics = [["AWS/ECS", "CPUUtilization", "ClusterName", var.cluster_name, "ServiceName", var.service_name]]
+          title       = "ECS CPU Utilization"
+          region      = var.aws_region
+          period      = 300
+          stat        = "Average"
+          view        = "timeSeries"
+          metrics     = [["AWS/ECS", "CPUUtilization", "ClusterName", var.cluster_name, "ServiceName", var.service_name]]
           annotations = { horizontal = [{ value = var.cpu_threshold, label = "Umbral", color = "#ff6961" }] }
         }
       },
@@ -147,12 +147,12 @@ resource "aws_cloudwatch_dashboard" "this" {
         width  = 12
         height = 6
         properties = {
-          title   = "ECS Memory Utilization"
-          region  = var.aws_region
-          period  = 300
-          stat    = "Average"
-          view    = "timeSeries"
-          metrics = [["AWS/ECS", "MemoryUtilization", "ClusterName", var.cluster_name, "ServiceName", var.service_name]]
+          title       = "ECS Memory Utilization"
+          region      = var.aws_region
+          period      = 300
+          stat        = "Average"
+          view        = "timeSeries"
+          metrics     = [["AWS/ECS", "MemoryUtilization", "ClusterName", var.cluster_name, "ServiceName", var.service_name]]
           annotations = { horizontal = [{ value = var.memory_threshold, label = "Umbral", color = "#ff6961" }] }
         }
       },

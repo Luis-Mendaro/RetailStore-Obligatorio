@@ -108,22 +108,22 @@ module "ecs_service_l0" {
   source   = "../../modules/ecs_service"
   for_each = local.layer0
 
-  app_name            = each.key
-  environment         = var.environment
-  cluster_id          = module.ecs_cluster.cluster_id
-  vpc_id              = module.networking.vpc_id
-  public_subnet_ids   = module.networking.public_subnet_ids
-  private_subnet_ids  = module.networking.private_subnet_ids
-  vpc_cidr_block       = var.vpc_cidr_block
-  image_url            = local.image_urls[each.key]
-  execution_role_arn   = data.aws_iam_role.lab_role.arn
-  container_port       = each.value.container_port
-  public               = each.value.public
-  internal_protocol    = each.value.protocol
-  cpu                  = var.task_cpu
-  memory               = var.task_memory
-  desired_count        = var.desired_count
-  aws_region           = var.aws_region
+  app_name              = each.key
+  environment           = var.environment
+  cluster_id            = module.ecs_cluster.cluster_id
+  vpc_id                = module.networking.vpc_id
+  public_subnet_ids     = module.networking.public_subnet_ids
+  private_subnet_ids    = module.networking.private_subnet_ids
+  vpc_cidr_block        = var.vpc_cidr_block
+  image_url             = local.image_urls[each.key]
+  execution_role_arn    = data.aws_iam_role.lab_role.arn
+  container_port        = each.value.container_port
+  public                = each.value.public
+  internal_protocol     = each.value.protocol
+  cpu                   = var.task_cpu
+  memory                = var.task_memory
+  desired_count         = var.desired_count
+  aws_region            = var.aws_region
   environment_variables = local.layer0_env_vars[each.key]
 }
 
@@ -131,22 +131,22 @@ module "ecs_service_l1" {
   source   = "../../modules/ecs_service"
   for_each = local.layer1
 
-  app_name            = each.key
-  environment         = var.environment
-  cluster_id          = module.ecs_cluster.cluster_id
-  vpc_id              = module.networking.vpc_id
-  public_subnet_ids   = module.networking.public_subnet_ids
-  private_subnet_ids  = module.networking.private_subnet_ids
-  vpc_cidr_block       = var.vpc_cidr_block
-  image_url            = local.image_urls[each.key]
-  execution_role_arn   = data.aws_iam_role.lab_role.arn
-  container_port       = each.value.container_port
-  public               = each.value.public
-  internal_protocol    = each.value.protocol
-  cpu                  = var.task_cpu
-  memory               = var.task_memory
-  desired_count        = var.desired_count
-  aws_region           = var.aws_region
+  app_name              = each.key
+  environment           = var.environment
+  cluster_id            = module.ecs_cluster.cluster_id
+  vpc_id                = module.networking.vpc_id
+  public_subnet_ids     = module.networking.public_subnet_ids
+  private_subnet_ids    = module.networking.private_subnet_ids
+  vpc_cidr_block        = var.vpc_cidr_block
+  image_url             = local.image_urls[each.key]
+  execution_role_arn    = data.aws_iam_role.lab_role.arn
+  container_port        = each.value.container_port
+  public                = each.value.public
+  internal_protocol     = each.value.protocol
+  cpu                   = var.task_cpu
+  memory                = var.task_memory
+  desired_count         = var.desired_count
+  aws_region            = var.aws_region
   environment_variables = local.layer1_env_vars[each.key]
 }
 
@@ -159,16 +159,16 @@ module "ecs_service_checkout" {
   vpc_id             = module.networking.vpc_id
   public_subnet_ids  = module.networking.public_subnet_ids
   private_subnet_ids = module.networking.private_subnet_ids
-  vpc_cidr_block      = var.vpc_cidr_block
-  image_url           = local.image_urls["checkout"]
-  execution_role_arn  = data.aws_iam_role.lab_role.arn
-  container_port      = local.services.checkout.container_port
-  public              = local.services.checkout.public
-  internal_protocol   = local.services.checkout.protocol
-  cpu                 = var.task_cpu
-  memory              = var.task_memory
-  desired_count       = var.desired_count
-  aws_region          = var.aws_region
+  vpc_cidr_block     = var.vpc_cidr_block
+  image_url          = local.image_urls["checkout"]
+  execution_role_arn = data.aws_iam_role.lab_role.arn
+  container_port     = local.services.checkout.container_port
+  public             = local.services.checkout.public
+  internal_protocol  = local.services.checkout.protocol
+  cpu                = var.task_cpu
+  memory             = var.task_memory
+  desired_count      = var.desired_count
+  aws_region         = var.aws_region
   environment_variables = [
     { name = "RETAIL_CHECKOUT_PERSISTENCE_PROVIDER", value = "redis" },
     { name = "RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL", value = "redis://${module.ecs_service_l0["redis"].endpoint_dns_name}:6379" },
@@ -185,16 +185,16 @@ module "ecs_service_ui" {
   vpc_id             = module.networking.vpc_id
   public_subnet_ids  = module.networking.public_subnet_ids
   private_subnet_ids = module.networking.private_subnet_ids
-  vpc_cidr_block      = var.vpc_cidr_block
-  image_url           = local.image_urls["ui"]
-  execution_role_arn  = data.aws_iam_role.lab_role.arn
-  container_port      = local.services.ui.container_port
-  public              = local.services.ui.public
-  internal_protocol   = local.services.ui.protocol
-  cpu                 = var.task_cpu
-  memory              = var.task_memory
-  desired_count       = var.desired_count
-  aws_region          = var.aws_region
+  vpc_cidr_block     = var.vpc_cidr_block
+  image_url          = local.image_urls["ui"]
+  execution_role_arn = data.aws_iam_role.lab_role.arn
+  container_port     = local.services.ui.container_port
+  public             = local.services.ui.public
+  internal_protocol  = local.services.ui.protocol
+  cpu                = var.task_cpu
+  memory             = var.task_memory
+  desired_count      = var.desired_count
+  aws_region         = var.aws_region
   environment_variables = [
     { name = "RETAIL_UI_ENDPOINTS_CATALOG", value = "http://${module.ecs_service_l1["catalog"].endpoint_dns_name}" },
     { name = "RETAIL_UI_ENDPOINTS_CARTS", value = "http://${module.ecs_service_l1["cart"].endpoint_dns_name}" },
