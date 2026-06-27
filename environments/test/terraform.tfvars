@@ -1,0 +1,11 @@
+environment        = "test"
+aws_region         = "us-east-1"
+vpc_cidr_block     = "10.1.0.0/16"
+public_subnets     = ["10.1.1.0/24", "10.1.2.0/24"]
+private_subnets    = ["10.1.11.0/24", "10.1.12.0/24"]
+availability_zones = ["us-east-1a", "us-east-1b"]
+lab_role_name      = "LabRole"
+task_cpu           = 512
+task_memory        = 1024
+desired_count      = 1
+alarm_email        = ""
