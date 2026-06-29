@@ -304,6 +304,11 @@ gitGraph
    commit id: "observabilidad"
    checkout develop
    merge "feature/observabilidad"
+   branch "feature/infra-pipeline"
+   checkout "feature/infra-pipeline"
+   commit id: "pipeline"
+   checkout develop
+   merge "feature/infra-pipeline"
    branch "feature/documentacion"
    checkout "feature/documentacion"
    commit id: "docs"
