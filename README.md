@@ -353,3 +353,19 @@ Los recursos AWS no incluyen sufijo de ambiente en el nombre (ej: `ui-alb` en ve
 - [docs/arquitectura.md](docs/arquitectura.md) — diagramas detallados
 - [docs/seguridad.md](docs/seguridad.md) — hallazgos de seguridad y CVEs aceptados
 - [docs/decisiones.md](docs/decisiones.md) — decisiones de diseño (ADRs)
+
+---
+
+## Uso de Inteligencia Artificial Generativa
+
+**Herramientas utilizadas:**
+
+- Claude Code (Anthropic) — agente de desarrollo en terminal: generación y modificación de código Terraform, Dockerfiles, pipelines GitHub Actions y scripts de despliegue
+- Claude.ai (Anthropic) — consultas de arquitectura, planificación, resolución de errores y redacción de documentación
+- ChatGPT (OpenAI) — consultas puntuales y contraste de información
+- Gemini (Google) — verificación de conceptos y consultas alternativas
+- Grok (xAI) — contraste de respuestas en casos de duda
+
+**Metodología de uso:** las herramientas se utilizaron de forma complementaria. Ante respuestas contradictorias entre modelos, se contrastó la información y se verificó contra documentación oficial antes de aplicar cualquier solución. Los hilos largos se dividieron entre herramientas para mantener contexto limpio.
+
+**Sobre el proceso:** el uso de múltiples herramientas fue intencional — contrastar respuestas entre modelos distintos formó parte del proceso de aprendizaje y validación. Todo el código fue revisado y comprendido antes de incorporarlo al proyecto.
