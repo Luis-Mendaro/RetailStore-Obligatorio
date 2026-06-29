@@ -28,7 +28,7 @@ Los tests unitarios se ejecutan en todos los eventos del pipeline (push, PR, wor
 Se realizaron pruebas funcionales end-to-end sobre el ambiente dev desplegado en AWS, cubriendo el flujo completo de la aplicación:
 
 1. **Navegación**: acceso a la tienda vía URL pública del ALB, carga del catálogo de productos
-2. **Carrito**: adición de productos al carrito, verificación de persistencia en PostgreSQL
+2. **Carrito**: adición de productos al carrito, verificación de persistencia en PostgreSQL. Se detectó que el servicio `cart` no reconecta automáticamente a PostgreSQL si la conexión se cierra por timeout — el task aparece como `HEALTHY` pero falla al agregar productos. Workaround aplicado: forzar un nuevo deployment (`aws ecs update-service --force-new-deployment`) y ejecutar el flujo del carrito inmediatamente después del deploy para calentar la conexión
 3. **Checkout**: inicio del proceso de pago, integración con Redis para sesión y con el servicio orders
 4. **Orden**: confirmación de la orden, verificación en la base de datos y en el panel admin
 
