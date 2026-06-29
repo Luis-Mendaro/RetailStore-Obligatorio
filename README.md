@@ -97,7 +97,7 @@ Desplegada en **AWS ECS Fargate** con infraestructura como código en Terraform 
 │  └─────────────────────────────────────────────────────────────────────────┘  │     │
 │                                                                                     │
 │  ECR (registry de imágenes — externo a VPC)                                        │
-│  CloudWatch (logs, dashboard, 5 alarmas) → SNS → Lambda (alerta por email)         │
+│  CloudWatch (logs, dashboard, 5 alarmas) → SNS → Lambda (log JSON) + email directo  │
 └─────────────────────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -119,34 +119,35 @@ Cada ambiente tiene su propia VPC, cluster ECS, ALBs y repositorios ECR. Los amb
 RetailStore/
 ├── .github/
 │   └── workflows/
-│       ├── app.yml          # CI/CD de la aplicación
-│       └── infra.yml        # Despliegue de infraestructura
+│       ├── app.yml              # CI/CD de la aplicación
+│       └── infra.yml            # Despliegue de infraestructura
 ├── db/
-│   └── Dockerfile           # Imagen personalizada de PostgreSQL
+│   ├── Dockerfile               # Imagen personalizada de PostgreSQL
+│   └── init-db.sql              # Esquema de BD para la imagen Docker
 ├── src/
-│   ├── catalog/             # Go — catálogo de productos
-│   ├── cart/                # Python — carrito de compras
-│   ├── checkout/            # TypeScript/NestJS — proceso de pago
-│   ├── orders/              # Go — gestión de órdenes
-│   ├── ui/                  # TypeScript/Express — frontend
-│   └── admin/               # TypeScript/Express — panel admin
-├── docker-compose.yml       # Ejecución local
-└── init-db.sql              # Inicialización de bases de datos
+│   ├── catalog/                 # Go — catálogo de productos
+│   ├── cart/                    # Python — carrito de compras
+│   ├── checkout/                # TypeScript/NestJS — proceso de pago
+│   ├── orders/                  # Go — gestión de órdenes
+│   ├── ui/                      # TypeScript/Express — frontend
+│   └── admin/                   # TypeScript/Express — panel admin
 ├── environments/
 │   ├── dev/
 │   ├── test/
-│   └── prod/                # main.tf, variables.tf, terraform.tfvars
+│   └── prod/                    # main.tf, variables.tf, terraform.tfvars
 ├── modules/
-│   ├── networking/          # VPC, subnets, NAT Gateway, IGW
-│   ├── ecr/                 # Repositorios de imágenes Docker
-│   ├── ecs/                 # Cluster ECS Fargate
-│   ├── ecs_service/         # Task definition, ALB/NLB, service
-│   ├── cloudwatch/          # Dashboard y alarmas
-│   └── lambda_alert/        # Lambda Python para notificaciones
-└── docs/
-    ├── arquitectura.md
-    ├── seguridad.md
-    └── decisiones.md
+│   ├── networking/              # VPC, subnets, NAT Gateway, IGW
+│   ├── ecr/                     # Repositorios de imágenes Docker
+│   ├── ecs/                     # Cluster ECS Fargate
+│   ├── ecs_service/             # Task definition, ALB/NLB, service
+│   ├── cloudwatch/              # Dashboard y alarmas
+│   └── lambda_alert/            # Lambda Python para notificaciones
+├── docs/
+│   ├── arquitectura.md
+│   ├── seguridad.md
+│   └── decisiones.md
+├── docker-compose.yml           # Ejecución local
+└── init-db.sql                  # Esquema de BD para docker-compose local
 ```
 
 ---
@@ -323,7 +324,7 @@ Push / PR                          workflow_dispatch (ambiente)
 | `ecs`           | Cluster ECS Fargate con Container Insights habilitado          |
 | `ecs_service`   | Task definition, ALB/NLB, target group, ECS service por app   |
 | `cloudwatch`    | Log groups, dashboard, 5 alarmas métricas, SNS topic          |
-| `lambda_alert`  | Función Python 3.12 para formatear y enviar notificaciones     |
+| `lambda_alert`  | Función Python 3.12 que loguea alarmas como JSON en CloudWatch Logs |
 
 ---
 

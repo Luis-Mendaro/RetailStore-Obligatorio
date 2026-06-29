@@ -11,7 +11,7 @@
                              │
          ┌───────────────────┼────────────────────┐
          │                   │                    │
-  us-east-1a          us-east-1b             (ambas AZs)
+  us-east-1a          us-east-1b
   10.x.1.0/24         10.x.2.0/24
   (subnet pública)    (subnet pública)
          │                   │
@@ -159,15 +159,9 @@ Internet
       │ alarmas (5)
       ▼
   SNS Topic
-      │ notificación
-      ▼
-  Lambda Python 3.12
-      │ formato mensaje
-      ▼
-  Email (SNS subscription)
-  securedev.lm@gmail.com
-      │
-      ▼
+      ├──► Lambda Python 3.12 ──► CloudWatch Logs (JSON estructurado)
+      └──► Email directo: securedev.lm@gmail.com (dev y prod)
+
   Dashboard CloudWatch
   (CPU, memoria, 5XX, latencia, hosts)
 ```
@@ -209,7 +203,7 @@ modules/                                                           │
     main.tf    → VPC, subnets, IGW, NAT GW, route tables         │
                                                                    │
   ecr/         ◄─────────────────────────────────────────────────┤
-    main.tf    → 8 repositorios ECR con lifecycle policy          │
+    main.tf    → 7 repositorios ECR con lifecycle policy          │
                                                                    │
   ecs/         ◄─────────────────────────────────────────────────┤
     main.tf    → Cluster ECS Fargate + Container Insights         │
