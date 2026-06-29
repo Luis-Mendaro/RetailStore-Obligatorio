@@ -85,15 +85,15 @@ flowchart TD
 
 ## Manejo de secretos en infraestructura
 
-| Secreto                  | Almacenamiento          | En Terraform state |
-|--------------------------|-------------------------|--------------------|
-| DB_PASSWORD              | GitHub Secret           | `sensitive = true` |
-| ADMIN_USERNAME           | GitHub Secret           | `sensitive = true` |
-| ADMIN_PASSWORD           | GitHub Secret           | `sensitive = true` |
-| ADMIN_JWT_SECRET         | GitHub Secret           | `sensitive = true` |
-| AWS_ACCESS_KEY_ID        | GitHub Secret           | No aplica          |
-| AWS_SECRET_ACCESS_KEY    | GitHub Secret           | No aplica          |
-| AWS_SESSION_TOKEN        | GitHub Secret           | No aplica          |
+| Secreto                      | Almacenamiento          | En Terraform state |
+|------------------------------|-------------------------|--------------------|
+| `TF_VAR_DB_PASSWORD`         | GitHub Secret           | `sensitive = true` |
+| `TF_VAR_ADMIN_USERNAME`      | GitHub Secret           | `sensitive = true` |
+| `TF_VAR_ADMIN_PASSWORD`      | GitHub Secret           | `sensitive = true` |
+| `TF_VAR_ADMIN_JWT_SECRET`    | GitHub Secret           | `sensitive = true` |
+| `AWS_ACCESS_KEY_ID`          | GitHub Secret           | No aplica          |
+| `AWS_SECRET_ACCESS_KEY`      | GitHub Secret           | No aplica          |
+| `AWS_SESSION_TOKEN`          | GitHub Secret           | No aplica          |
 
 El estado de Terraform se almacena en S3 con versionado habilitado. Los valores marcados como `sensitive` no aparecen en el output del plan ni del apply.
 
