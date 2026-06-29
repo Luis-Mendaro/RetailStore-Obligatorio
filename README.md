@@ -8,41 +8,19 @@ Desplegada en **AWS ECS Fargate** con infraestructura como código en Terraform 
 
 ## Arquitectura de microservicios
 
-```
-          ┌──────────────────────────────────────────────────┐
-          │               Usuario / Navegador                │
-          └────────────────────────┬─────────────────────────┘
-                                   │ HTTP
-          ┌────────────────────────▼─────────────────────────┐
-          │                   UI  :8080                      │
-          │            Node.js 22 / Express                  │
-          └───────┬──────────┬──────────┬────────────┬───────┘
-                  │          │          │            │  HTTP (proxy)
-        ┌─────────▼────┐ ┌───▼─────┐ ┌──▼────────┐ ┌▼──────────┐
-        │   Catalog    │ │  Cart   │ │ Checkout  │ │  Orders   │
-        │    :8080     │ │  :8080  │ │  :8080    │ │  :8080    │
-        │  Go / Gin    │ │ Python  │ │ NestJS/TS │ │ Go / Gin  │
-        └──────┬───────┘ └────┬────┘ └─────┬─────┘ └─────┬─────┘
-               │              │            │  HTTP        │
-               │              │            └─────────────►│
-               │              │     ┌───────────────┐     │
-               │              │     │    Redis 7    │◄────┤
-               │              │     └───────────────┘     │
-               └──────────────┴───────────────────────────┘
-                                          │
-        ┌─────────────────────────────────▼──────────────────────┐
-        │                      PostgreSQL 16                     │
-        │          catalogdb     │    cartdb    │    orders      │
-        └────────────────────────────────────────────────────────┘
-
-          ┌──────────────────────────────────────────────────┐
-          │                  Admin  :8081                    │
-          │            Node.js 22 / Express                  │
-          └────────────────────────┬─────────────────────────┘
-                                   │ SQL directo
-          ┌────────────────────────▼─────────────────────────┐
-          │                  PostgreSQL 16                   │
-          └──────────────────────────────────────────────────┘
+```mermaid
+graph TD
+    User["Usuario / Navegador"] -->|HTTP| UI["UI :8080\nNode.js 22 / Express"]
+    UI -->|HTTP proxy| Catalog["Catalog :8080\nGo / Gin"]
+    UI -->|HTTP proxy| Cart["Cart :8080\nPython / FastAPI"]
+    UI -->|HTTP proxy| Checkout["Checkout :8080\nNestJS / TS"]
+    UI -->|HTTP proxy| Orders["Orders :8080\nGo / Gin"]
+    Checkout -->|HTTP| Orders
+    Checkout --> Redis[(Redis 7)]
+    Admin["Admin :8081\nNode.js / Express"] -->|SQL| DB[(PostgreSQL 16)]
+    Catalog -->|SQL| DB
+    Cart -->|SQL| DB
+    Orders -->|SQL| DB
 ```
 
 | Servicio     | Lenguaje    | Framework     | Persistencia |
@@ -60,45 +38,24 @@ Desplegada en **AWS ECS Fargate** con infraestructura como código en Terraform 
 
 ## Infraestructura en nube (AWS)
 
-```
-                          ┌─────────────────────────────────────────┐
-                          │           GitHub Actions                │
-                          │   app.yml (CI/CD)  infra.yml (IaC)     │
-                          └────────────────────┬────────────────────┘
-                                               │
-                          ┌────────────────────▼────────────────────┐
-                          │          S3 — Terraform state           │
-                          │  retailstore-obligatorio-lm-terraform   │
-                          └─────────────────────────────────────────┘
+```mermaid
+graph TD
+    GH["GitHub Actions\napp.yml / infra.yml"] --> S3[(S3 — Terraform state)]
 
-┌─────────────────────────────── VPC (por ambiente) ─────────────────────────────────┐
-│                                                                                     │
-│  Subnets públicas (us-east-1a / us-east-1b)                                        │
-│  ┌──────────────────────┐   ┌──────────────────────┐   ┌──────────────────────┐    │
-│  │   ALB — ui (público) │   │  ALB — admin (públ.) │   │   NAT Gateway ×2     │    │
-│  └──────────┬───────────┘   └──────────┬───────────┘   └──────────────────────┘    │
-│             │                          │                                            │
-│  Subnets privadas                      │                                            │
-│  ┌──────────▼──────────────────────────▼──────────────────────────────────────┐     │
-│  │                        ECS Fargate Cluster                                 │     │
-│  │                                                                             │     │
-│  │  ┌─────────┐  ┌─────────┐  ┌──────────┐  ┌─────────┐  ┌────────────────┐  │     │
-│  │  │   ui    │  │ catalog │  │   cart   │  │checkout │  │    orders      │  │     │
-│  │  │ (task)  │  │ (task)  │  │  (task)  │  │ (task)  │  │    (task)      │  │     │
-│  │  └─────────┘  └────┬────┘  └────┬─────┘  └────┬────┘  └───────┬────────┘  │     │
-│  │       ▲  ALB/NLB   │            │              │               │           │     │
-│  │  ┌────┴────┐  ┌────▼────┐  ┌────▼─────┐  ┌────▼────┐  ┌───────▼────────┐  │     │
-│  │  │ ui-alb  │  │cat-nlb  │  │  cart-nlb│  │chk-nlb  │  │   orders-nlb   │  │     │
-│  │  └─────────┘  └─────────┘  └──────────┘  └─────────┘  └────────────────┘  │     │
-│  │                                                                             │     │
-│  │  ┌──────────────┐  ┌──────────────────────────────────────────────────┐    │     │
-│  │  │  admin-alb   │  │  db (PostgreSQL 16)   redis (Redis 7)            │    │     │
-│  │  └──────────────┘  └──────────────────────────────────────────────────┘    │     │
-│  └─────────────────────────────────────────────────────────────────────────┘  │     │
-│                                                                                     │
-│  ECR (registry de imágenes — externo a VPC)                                        │
-│  CloudWatch (logs, dashboard, 5 alarmas) → SNS → Lambda (log JSON) + email directo  │
-└─────────────────────────────────────────────────────────────────────────────────────┘
+    subgraph VPC["VPC — por ambiente"]
+        ALBS["ALB — ui / admin\nsubnets públicas"]
+        NAT["NAT Gateway ×2"]
+        ECS["ECS Fargate Cluster\nui · catalog · cart · checkout\norders · admin · db · redis\nsubnets privadas"]
+        ALBS --> ECS
+        NAT --> ECS
+    end
+
+    GH -.->|Terraform| VPC
+    ECR["ECR — 7 repos"] -.->|imagen| ECS
+    CW["CloudWatch\nlog groups · dashboard · 5 alarmas"] --> SNS[SNS Topic]
+    SNS --> Lambda["Lambda\nlog JSON estructurado"]
+    SNS --> Email["email directo\nsecuredev.lm@gmail.com"]
+    ECS --> CW
 ```
 
 ### Ambientes
@@ -275,32 +232,18 @@ terraform destroy -var-file="terraform.tfvars"
 
 ## Pipeline CI/CD
 
-```
-Push / PR                          workflow_dispatch (ambiente)
-     │                                       │
-     ▼                                       ▼
-┌──────────┐   ┌──────────────┐   ┌──────────────────────┐
-│code-scan │   │ sca-secrets  │   │   test (por servicio) │
-│ Semgrep  │   │Trivy+Gitleaks│   │   (matrix: 6 servicios│
-│(bloqueante│   │(Trivy inform.)│   │    con tests)        │
-└────┬─────┘   └──────┬───────┘   └──────────┬───────────┘
-     │                │                       │
-     └────────────────┴───────────────────────┘
-                              │
-                    (solo workflow_dispatch)
-                              │
-                    ┌─────────▼──────────┐
-                    │  build-scan-push   │
-                    │  Docker build      │
-                    │  Trivy image scan  │
-                    │  Push a ECR        │
-                    └─────────┬──────────┘
-                              │
-                    ┌─────────▼──────────┐
-                    │      deploy        │
-                    │  ECS update-service│
-                    │  wait stable       │
-                    └────────────────────┘
+```mermaid
+flowchart LR
+    Push(["Push / PR"]) --> CodeScan["code-scan\nSemgrep SAST\nbloqueante"]
+    Push --> SCA["sca-secrets\nTrivy SCA + Gitleaks\nGitleaks bloqueante"]
+    Push --> Tests["test\nmatrix 6 servicios\nbloqueante"]
+    Dispatch(["workflow_dispatch\nambiente elegido"]) --> CodeScan
+    Dispatch --> SCA
+    Dispatch --> Tests
+    CodeScan --> Build["build-scan-push\nDocker build · Trivy image · ECR push\nsolo workflow_dispatch"]
+    SCA --> Build
+    Tests --> Build
+    Build --> Deploy["deploy\nECS update-service\nwait services-stable"]
 ```
 
 | Job               | Trigger            | Bloqueante | Herramienta     |
@@ -346,13 +289,28 @@ Las alarmas de dev y prod envían email a `securedev.lm@gmail.com`. Test no tien
 
 ## Estrategia de ramas (Git Flow)
 
-```
-main          ────●────────────────────────────────────●────
-                  │ (tag v1.0)                         │
-develop       ────●──────────●──────────●──────────────●────
-                             │          │
-feature/*     ────────────●──●   ────●──●
-                (feature/terraform-iac-base)  (feature/observabilidad)
+```mermaid
+gitGraph
+   commit id: "init"
+   branch develop
+   checkout develop
+   branch "feature/terraform-iac-base"
+   checkout "feature/terraform-iac-base"
+   commit id: "terraform"
+   checkout develop
+   merge "feature/terraform-iac-base"
+   branch "feature/observabilidad"
+   checkout "feature/observabilidad"
+   commit id: "observabilidad"
+   checkout develop
+   merge "feature/observabilidad"
+   branch "feature/documentacion"
+   checkout "feature/documentacion"
+   commit id: "docs"
+   checkout develop
+   merge "feature/documentacion"
+   checkout main
+   merge develop tag: "v1.0"
 ```
 
 - `feature/*` → PR a `develop` (revisión con segunda cuenta autorizada por el docente)

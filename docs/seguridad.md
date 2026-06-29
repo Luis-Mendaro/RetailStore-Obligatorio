@@ -67,19 +67,19 @@ Escanea el historial completo del repositorio buscando credenciales, tokens y cl
 
 ## Quality gates
 
+```mermaid
+flowchart TD
+    Push(["Push / PR"]) --> Semgrep["Semgrep SAST"]
+    Push --> Trivy["Trivy SCA"]
+    Push --> Gitleaks[Gitleaks]
+    Push --> TrivyImg["Trivy image scan"]
+    Semgrep -->|"ERROR severity"| Block1["BLOQUEA el build"]
+    Trivy -->|"CRITICAL / HIGH"| Report1["reporta, no bloquea (*)"]
+    Gitleaks -->|"secreto detectado"| Block2["BLOQUEA el build"]
+    TrivyImg -->|"CRITICAL / HIGH"| Report2["reporta, no bloquea (*)"]
 ```
-Push / PR
-    │
-    ├─► Semgrep SAST ────────── ERROR severity → BLOQUEA el build
-    │
-    ├─► Trivy SCA ──────────── CRITICAL/HIGH → reporta, no bloquea (*)
-    │
-    ├─► Gitleaks ────────────── secreto detectado → BLOQUEA el build
-    │
-    └─► Trivy image scan ───── CRITICAL/HIGH → reporta, no bloquea (*)
 
-(*) riesgo documentado y aceptado — app de partida no modificable
-```
+`(*)` riesgo documentado y aceptado — app de partida no modificable
 
 ---
 
