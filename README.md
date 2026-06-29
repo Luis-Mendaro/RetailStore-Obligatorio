@@ -102,7 +102,9 @@ RetailStore/
 ├── docs/
 │   ├── arquitectura.md
 │   ├── seguridad.md
-│   └── decisiones.md
+│   ├── decisiones.md
+│   ├── informe-calidad.md
+│   └── capturas/                # Evidencias: Kanban, PRs, despliegues, observabilidad
 ├── docker-compose.yml           # Ejecución local
 └── init-db.sql                  # Esquema de BD para docker-compose local
 ```
@@ -353,6 +355,8 @@ Los recursos AWS no incluyen sufijo de ambiente en el nombre (ej: `ui-alb` en ve
 - [docs/arquitectura.md](docs/arquitectura.md) — diagramas detallados
 - [docs/seguridad.md](docs/seguridad.md) — hallazgos de seguridad y CVEs aceptados
 - [docs/decisiones.md](docs/decisiones.md) — decisiones de diseño (ADRs)
+- [docs/informe-calidad.md](docs/informe-calidad.md) — informe de testing y análisis de calidad
+- [docs/capturas/](docs/capturas/) — evidencias: tablero Kanban, PRs, despliegues y observabilidad
 
 ---
 
