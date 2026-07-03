@@ -52,7 +52,7 @@ flowchart LR
     Admin --> DB
 ```
 
-`ui` y `admin` se exponen con **ALB** (HTTP) en subnets públicas. Los servicios internos `catalog`, `cart`, `orders` y `checkout` también usan **ALB** (HTTP). Solo `db` y `redis` usan **NLB** (TCP), que opera en capa 4 para protocolos no-HTTP (Postgres wire protocol y RESP de Redis).
+`ui` y `admin` tienen **ALB público** (`scheme = internet-facing`, en subnets públicas — accesibles desde internet). Los servicios `catalog`, `cart`, `orders` y `checkout` también usan ALB, pero con **`scheme = internal`** — están en subnets privadas y no son accesibles desde internet; solo reciben tráfico desde dentro de la VPC (originado por el task de `ui`). Solo `db` y `redis` usan **NLB** (`internal`, TCP puro) porque sus protocolos no son HTTP. La regla está en `modules/ecs_service/main.tf`: `internal = !var.public`.
 
 ---
 

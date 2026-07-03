@@ -22,10 +22,13 @@ Registro de las decisiones técnicas más relevantes tomadas durante el proyecto
 
 **Decisión:** usar Application Load Balancer (ALB) para todos los servicios que exponen HTTP (`ui`, `admin`, `catalog`, `cart`, `orders`, `checkout`) y Network Load Balancer (NLB) solo para `db` (PostgreSQL) y `redis`.
 
+**Aclaración importante — exposición a internet:** los ALBs de `catalog`, `cart`, `orders` y `checkout` son **internos** (`scheme = internal`, en subnets privadas). Solo los ALBs de `ui` y `admin` son internet-facing (`scheme = internet-facing`, en subnets públicas). Los cuatro servicios internos no son accesibles desde internet — únicamente reciben tráfico desde dentro de la VPC (el task de `ui` los llama directamente).
+
 **Justificación:**
-- Los seis servicios HTTP necesitan que el load balancer entienda HTTP para health checks por ruta y reglas de ruteo por path
-- `db` y `redis` hablan protocolos binarios propios (Postgres wire protocol y RESP de Redis) — no HTTP. El NLB opera en capa 4 (TCP puro) sin overhead de inspección HTTP
-- La regla está codificada en `modules/ecs_service/main.tf`: `use_nlb = !var.public && var.internal_protocol == "TCP"`; solo `db` y `redis` tienen `internal_protocol = "TCP"`
+- Los seis servicios HTTP necesitan que el load balancer entienda HTTP para health checks por ruta
+- ALB interno para los cuatro servicios de backend mantiene la superficie de ataque mínima: el tráfico nunca sale de la VPC
+- `db` y `redis` hablan protocolos binarios propios (Postgres wire protocol y RESP de Redis) — no HTTP. El NLB opera en capa 4 (TCP puro)
+- La regla está codificada en `modules/ecs_service/main.tf`: `internal = !var.public` y `use_nlb = !var.public && var.internal_protocol == "TCP"`
 
 ---
 
