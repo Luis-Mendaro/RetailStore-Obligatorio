@@ -10,3 +10,8 @@ crash.log
 crash.*.log
 modules/lambda_alert/lambda_alert.zip
 PROYECTO.md
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
