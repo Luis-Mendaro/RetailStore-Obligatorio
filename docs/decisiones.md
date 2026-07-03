@@ -18,14 +18,14 @@ Registro de las decisiones técnicas más relevantes tomadas durante el proyecto
 
 ---
 
-## 2. ALB para servicios públicos, NLB para servicios internos
+## 2. ALB para todos los servicios HTTP, NLB solo para db y redis
 
-**Decisión:** usar Application Load Balancer (ALB) para `ui` y `admin`, y Network Load Balancer (NLB) para los servicios internos (`catalog`, `cart`, `orders`, `checkout`).
+**Decisión:** usar Application Load Balancer (ALB) para todos los servicios que exponen HTTP (`ui`, `admin`, `catalog`, `cart`, `orders`, `checkout`) y Network Load Balancer (NLB) solo para `db` (PostgreSQL) y `redis`.
 
 **Justificación:**
-- Los servicios internos solo necesitan balanceo TCP (capa 4) — no requieren inspección HTTP, reglas de ruteo por path ni terminación SSL
-- NLB tiene menor latencia y menor costo que ALB para tráfico interno
-- ALB se justifica para los servicios públicos porque permite reglas de seguridad HTTP y futura integración con WAF
+- Los seis servicios HTTP necesitan que el load balancer entienda HTTP para health checks por ruta y reglas de ruteo por path
+- `db` y `redis` hablan protocolos binarios propios (Postgres wire protocol y RESP de Redis) — no HTTP. El NLB opera en capa 4 (TCP puro) sin overhead de inspección HTTP
+- La regla está codificada en `modules/ecs_service/main.tf`: `use_nlb = !var.public && var.internal_protocol == "TCP"`; solo `db` y `redis` tienen `internal_protocol = "TCP"`
 
 ---
 

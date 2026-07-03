@@ -7,12 +7,11 @@ graph TD
     Internet --> IGW[Internet Gateway]
     IGW --> PubA["Subnet pública\nus-east-1a · 10.x.1.0/24"]
     IGW --> PubB["Subnet pública\nus-east-1b · 10.x.2.0/24"]
-    PubA --> NAT_A[NAT Gateway A]
-    PubB --> NAT_B[NAT Gateway B]
+    PubA --> NAT["NAT Gateway\nus-east-1a"]
     PubA --> ALB_UI[ALB — ui]
     PubB --> ALB_Admin[ALB — admin]
-    NAT_A --> PrivA["Subnet privada\nus-east-1a · 10.x.11.0/24"]
-    NAT_B --> PrivB["Subnet privada\nus-east-1b · 10.x.12.0/24"]
+    NAT --> PrivA["Subnet privada\nus-east-1a · 10.x.11.0/24"]
+    NAT --> PrivB["Subnet privada\nus-east-1b · 10.x.12.0/24"]
     ALB_UI --> ECS["ECS Fargate Cluster\nui · catalog · cart · checkout\norders · admin · db · redis"]
     ALB_Admin --> ECS
     PrivA --> ECS
@@ -37,15 +36,15 @@ flowchart LR
     Internet --> ALB_Admin["ALB admin\npúblico :80"]
     ALB_UI --> UI[ui task]
     ALB_Admin --> Admin[admin task]
-    UI --> CatNLB[catalog-nlb]
-    UI --> CartNLB[cart-nlb]
-    UI --> ChkNLB[checkout-nlb]
-    UI --> OrdNLB[orders-nlb]
-    CatNLB --> Catalog[catalog task]
-    CartNLB --> Cart[cart task]
-    ChkNLB --> Checkout[checkout task]
-    OrdNLB --> Orders[orders task]
-    Checkout --> OrdNLB
+    UI --> CatALB[catalog-alb]
+    UI --> CartALB[cart-alb]
+    UI --> ChkALB[checkout-alb]
+    UI --> OrdALB[orders-alb]
+    CatALB --> Catalog[catalog task]
+    CartALB --> Cart[cart task]
+    ChkALB --> Checkout[checkout task]
+    OrdALB --> Orders[orders task]
+    Checkout --> OrdALB
     Checkout --> Redis[(redis :6379)]
     Catalog --> DB[(db :5432)]
     Cart --> DB
@@ -53,7 +52,7 @@ flowchart LR
     Admin --> DB
 ```
 
-`ui` y `admin` se exponen con **ALB** (HTTP/HTTPS). Los servicios internos usan **NLB** (TCP) porque solo necesitan balanceo de capa 4 sin inspección HTTP.
+`ui` y `admin` se exponen con **ALB** (HTTP) en subnets públicas. Los servicios internos `catalog`, `cart`, `orders` y `checkout` también usan **ALB** (HTTP). Solo `db` y `redis` usan **NLB** (TCP), que opera en capa 4 para protocolos no-HTTP (Postgres wire protocol y RESP de Redis).
 
 ---
 
@@ -102,7 +101,7 @@ flowchart TD
     SNS -->|suscripción Lambda| Lambda[Lambda Python 3.12]
     SNS -->|suscripción email| Email["email directo\nsecuredev.lm@gmail.com\ndev y prod"]
     Lambda -->|JSON estructurado| CWL
-    CWL --> Dashboard["Dashboard CloudWatch\nCPU · memoria · 5XX · latencia · hosts"]
+    CWL --> Dashboard["Dashboard CloudWatch\nCPU · memoria · estado alarmas"]
 ```
 
 ---
