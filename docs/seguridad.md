@@ -72,7 +72,7 @@ flowchart TD
     Push(["Push / PR"]) --> Semgrep["Semgrep SAST"]
     Push --> Trivy["Trivy SCA"]
     Push --> Gitleaks[Gitleaks]
-    Push --> TrivyImg["Trivy image scan"]
+    Dispatch(["workflow_dispatch"]) --> TrivyImg["Trivy image scan"]
     Semgrep -->|"ERROR severity"| Block1["BLOQUEA el build"]
     Trivy -->|"CRITICAL / HIGH"| Report1["reporta, no bloquea (*)"]
     Gitleaks -->|"secreto detectado"| Block2["BLOQUEA el build"]
