@@ -7,12 +7,11 @@ graph TD
     Internet --> IGW[Internet Gateway]
     IGW --> PubA["Subnet pública\nus-east-1a · 10.x.1.0/24"]
     IGW --> PubB["Subnet pública\nus-east-1b · 10.x.2.0/24"]
-    PubA --> NAT_A[NAT Gateway A]
-    PubB --> NAT_B[NAT Gateway B]
+    PubA --> NAT["NAT Gateway\nus-east-1a"]
     PubA --> ALB_UI[ALB — ui]
     PubB --> ALB_Admin[ALB — admin]
-    NAT_A --> PrivA["Subnet privada\nus-east-1a · 10.x.11.0/24"]
-    NAT_B --> PrivB["Subnet privada\nus-east-1b · 10.x.12.0/24"]
+    NAT --> PrivA["Subnet privada\nus-east-1a · 10.x.11.0/24"]
+    NAT --> PrivB["Subnet privada\nus-east-1b · 10.x.12.0/24"]
     ALB_UI --> ECS["ECS Fargate Cluster\nui · catalog · cart · checkout\norders · admin · db · redis"]
     ALB_Admin --> ECS
     PrivA --> ECS
@@ -37,15 +36,15 @@ flowchart LR
     Internet --> ALB_Admin["ALB admin\npúblico :80"]
     ALB_UI --> UI[ui task]
     ALB_Admin --> Admin[admin task]
-    UI --> CatNLB[catalog-nlb]
-    UI --> CartNLB[cart-nlb]
-    UI --> ChkNLB[checkout-nlb]
-    UI --> OrdNLB[orders-nlb]
-    CatNLB --> Catalog[catalog task]
-    CartNLB --> Cart[cart task]
-    ChkNLB --> Checkout[checkout task]
-    OrdNLB --> Orders[orders task]
-    Checkout --> OrdNLB
+    UI --> CatALB[catalog-alb]
+    UI --> CartALB[cart-alb]
+    UI --> ChkALB[checkout-alb]
+    UI --> OrdALB[orders-alb]
+    CatALB --> Catalog[catalog task]
+    CartALB --> Cart[cart task]
+    ChkALB --> Checkout[checkout task]
+    OrdALB --> Orders[orders task]
+    Checkout --> OrdALB
     Checkout --> Redis[(redis :6379)]
     Catalog --> DB[(db :5432)]
     Cart --> DB
@@ -53,7 +52,7 @@ flowchart LR
     Admin --> DB
 ```
 
-`ui` y `admin` se exponen con **ALB** (HTTP/HTTPS). Los servicios internos usan **NLB** (TCP) porque solo necesitan balanceo de capa 4 sin inspección HTTP.
+`ui` y `admin` tienen **ALB público** (`scheme = internet-facing`, en subnets públicas — accesibles desde internet). Los servicios `catalog`, `cart`, `orders` y `checkout` también usan ALB, pero con **`scheme = internal`** — están en subnets privadas y no son accesibles desde internet; solo reciben tráfico desde dentro de la VPC (originado por el task de `ui`). Solo `db` y `redis` usan **NLB** (`internal`, TCP puro) porque sus protocolos no son HTTP. La regla está en `modules/ecs_service/main.tf`: `internal = !var.public`.
 
 ---
 
@@ -102,7 +101,7 @@ flowchart TD
     SNS -->|suscripción Lambda| Lambda[Lambda Python 3.12]
     SNS -->|suscripción email| Email["email directo\nsecuredev.lm@gmail.com\ndev y prod"]
     Lambda -->|JSON estructurado| CWL
-    CWL --> Dashboard["Dashboard CloudWatch\nCPU · memoria · 5XX · latencia · hosts"]
+    CWL --> Dashboard["Dashboard CloudWatch\nCPU · memoria · estado alarmas"]
 ```
 
 ---
@@ -165,3 +164,62 @@ graph TD
     DEV --> CW
     DEV --> LAMBDA
 ```
+
+---
+
+## Recursos creados por Terraform
+
+| Tipo | Cantidad | Nombres |
+|---|---|---|
+| VPC | 1 | `retailstore-dev` |
+| Subnets públicas | 2 | `10.0.1.0/24` (us-east-1a) · `10.0.2.0/24` (us-east-1b) |
+| Subnets privadas | 2 | `10.0.11.0/24` (us-east-1a) · `10.0.12.0/24` (us-east-1b) |
+| Internet Gateway | 1 | — |
+| NAT Gateway | 1 | Solo en us-east-1a — decisión de costo de lab |
+| ALB públicos | 2 | `ui-alb` · `admin-alb` |
+| ALB internos | 4 | `catalog-alb` · `cart-alb` · `orders-alb` · `checkout-alb` |
+| NLB internos | 2 | `db-nlb` · `redis-nlb` |
+| ECR repos | 7 | `retailstore-{servicio}-dev` (redis usa imagen pública) |
+| ECS cluster | 1 | `retailstore-dev` |
+| ECS services | 8 | ui · admin · catalog · cart · orders · checkout · db · redis |
+| CloudWatch alarms | 5 | sobre el servicio `ui` |
+| SNS topic | 1 | `retailstore-ui-alarms` |
+| Lambda | 1 | `retailstore-alert-handler-dev` |
+
+---
+
+## Conexiones entre módulos Terraform
+
+Los outputs de cada módulo se inyectan como variables de entorno en los task definitions:
+
+```
+module.ecs_service_l0["db"].endpoint_dns_name
+    → RETAIL_CATALOG_PERSISTENCE_ENDPOINT (catalog)
+    → CART_POSTGRES_HOST + CART_POSTGRES_PORT (cart)
+    → RETAIL_ORDERS_PERSISTENCE_ENDPOINT (orders)
+    → DB_HOST + DB_PORT (admin)
+
+module.ecs_service_l0["redis"].endpoint_dns_name
+    → RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL (checkout)
+
+module.ecs_service_l1["catalog"].endpoint_dns_name
+    → RETAIL_UI_ENDPOINTS_CATALOG (ui)
+
+module.ecs_service_ui.{alb_arn_suffix, target_group_arn_suffix, service_name}
+    → módulo cloudwatch (alarmas sobre ui)
+
+module.cloudwatch.sns_topic_arn
+    → módulo lambda_alert (suscripción SNS)
+```
+
+---
+
+## Configuración por ambiente
+
+| Variable | dev | test | prod |
+|---|---|---|---|
+| `vpc_cidr_block` | `10.0.0.0/16` | `10.1.0.0/16` | `10.2.0.0/16` |
+| `task_cpu` | 256 | 512 | 1024 |
+| `task_memory` | 512 MB | 1024 MB | 2048 MB |
+| `desired_count` | 1 | 1 | 2 |
+| `alarm_email` | sí | no | sí |

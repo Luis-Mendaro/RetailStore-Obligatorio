@@ -44,7 +44,7 @@ graph TD
 
     subgraph VPC["VPC — por ambiente"]
         ALBS["ALB — ui / admin\nsubnets públicas"]
-        NAT["NAT Gateway ×2"]
+        NAT["NAT Gateway ×1"]
         ECS["ECS Fargate Cluster\nui · catalog · cart · checkout\norders · admin · db · redis\nsubnets privadas"]
         ALBS --> ECS
         NAT --> ECS
@@ -275,7 +275,7 @@ flowchart LR
 
 ## Observabilidad
 
-CloudWatch Dashboard con métricas de los 8 servicios. Alarmas configuradas:
+CloudWatch Dashboard con métricas del servicio UI (punto de entrada público). Alarmas configuradas sobre UI:
 
 | Alarma              | Métrica                         | Umbral       | Acción           |
 |---------------------|---------------------------------|--------------|------------------|
