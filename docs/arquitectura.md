@@ -164,3 +164,62 @@ graph TD
     DEV --> CW
     DEV --> LAMBDA
 ```
+
+---
+
+## Recursos creados por Terraform
+
+| Tipo | Cantidad | Nombres |
+|---|---|---|
+| VPC | 1 | `retailstore-dev` |
+| Subnets públicas | 2 | `10.0.1.0/24` (us-east-1a) · `10.0.2.0/24` (us-east-1b) |
+| Subnets privadas | 2 | `10.0.11.0/24` (us-east-1a) · `10.0.12.0/24` (us-east-1b) |
+| Internet Gateway | 1 | — |
+| NAT Gateway | 1 | Solo en us-east-1a — decisión de costo de lab |
+| ALB públicos | 2 | `ui-alb` · `admin-alb` |
+| ALB internos | 4 | `catalog-alb` · `cart-alb` · `orders-alb` · `checkout-alb` |
+| NLB internos | 2 | `db-nlb` · `redis-nlb` |
+| ECR repos | 7 | `retailstore-{servicio}-dev` (redis usa imagen pública) |
+| ECS cluster | 1 | `retailstore-dev` |
+| ECS services | 8 | ui · admin · catalog · cart · orders · checkout · db · redis |
+| CloudWatch alarms | 5 | sobre el servicio `ui` |
+| SNS topic | 1 | `retailstore-ui-alarms` |
+| Lambda | 1 | `retailstore-alert-handler-dev` |
+
+---
+
+## Conexiones entre módulos Terraform
+
+Los outputs de cada módulo se inyectan como variables de entorno en los task definitions:
+
+```
+module.ecs_service_l0["db"].endpoint_dns_name
+    → RETAIL_CATALOG_PERSISTENCE_ENDPOINT (catalog)
+    → CART_POSTGRES_HOST + CART_POSTGRES_PORT (cart)
+    → RETAIL_ORDERS_PERSISTENCE_ENDPOINT (orders)
+    → DB_HOST + DB_PORT (admin)
+
+module.ecs_service_l0["redis"].endpoint_dns_name
+    → RETAIL_CHECKOUT_PERSISTENCE_REDIS_URL (checkout)
+
+module.ecs_service_l1["catalog"].endpoint_dns_name
+    → RETAIL_UI_ENDPOINTS_CATALOG (ui)
+
+module.ecs_service_ui.{alb_arn_suffix, target_group_arn_suffix, service_name}
+    → módulo cloudwatch (alarmas sobre ui)
+
+module.cloudwatch.sns_topic_arn
+    → módulo lambda_alert (suscripción SNS)
+```
+
+---
+
+## Configuración por ambiente
+
+| Variable | dev | test | prod |
+|---|---|---|---|
+| `vpc_cidr_block` | `10.0.0.0/16` | `10.1.0.0/16` | `10.2.0.0/16` |
+| `task_cpu` | 256 | 512 | 1024 |
+| `task_memory` | 512 MB | 1024 MB | 2048 MB |
+| `desired_count` | 1 | 1 | 2 |
+| `alarm_email` | sí | no | sí |
