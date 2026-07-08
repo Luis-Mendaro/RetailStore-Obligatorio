@@ -105,6 +105,15 @@ RetailStore/
 │   ├── decisiones.md
 │   ├── informe-calidad.md
 │   └── capturas/                # Evidencias: Kanban, PRs, despliegues, observabilidad
+├── tests/
+│   ├── conftest.py              # Fixtures: ui_url, admin_url, customer_id, admin_session
+│   ├── requirements.txt         # pytest, requests
+│   ├── test_health.py           # /health de UI y admin
+│   ├── test_catalog.py          # products, tags, size
+│   ├── test_cart.py             # CRUD de items del carrito
+│   ├── test_checkout.py         # disponibilidad del servicio
+│   ├── test_orders.py           # GET /orders
+│   └── test_admin.py            # login, productos, órdenes, auth
 ├── docker-compose.yml           # Ejecución local
 └── init-db.sql                  # Esquema de BD para docker-compose local
 ```
@@ -238,7 +247,7 @@ terraform destroy -var-file="terraform.tfvars"
 flowchart LR
     Push(["Push / PR"]) --> CodeScan["code-scan\nSemgrep SAST\nbloqueante"]
     Push --> SCA["sca-secrets\nTrivy SCA + Gitleaks\nGitleaks bloqueante"]
-    Push --> Tests["test\nmatrix 6 servicios\nbloqueante"]
+    Push --> Tests["test\ndocker-compose + pytest\nbloqueante"]
     Dispatch(["workflow_dispatch\nambiente elegido"]) --> CodeScan
     Dispatch --> SCA
     Dispatch --> Tests
@@ -246,15 +255,17 @@ flowchart LR
     SCA --> Build
     Tests --> Build
     Build --> Deploy["deploy\nECS update-service\nwait services-stable"]
+    Deploy --> Smoke["smoke-test\npytest contra ECS real\nsolo workflow_dispatch"]
 ```
 
-| Job               | Trigger            | Bloqueante | Herramienta     |
-|-------------------|--------------------|------------|-----------------|
-| code-scan         | push / PR / manual | Si         | Semgrep         |
-| sca-secrets       | push / PR / manual | Parcial*   | Trivy + Gitleaks|
-| test              | push / PR / manual | Si         | por servicio    |
-| build-scan-push   | manual             | Si         | Docker + Trivy  |
-| deploy            | manual             | Si         | AWS ECS         |
+| Job               | Trigger            | Bloqueante | Herramienta              |
+|-------------------|--------------------|------------|--------------------------|
+| code-scan         | push / PR / manual | Si         | Semgrep                  |
+| sca-secrets       | push / PR / manual | Parcial*   | Trivy + Gitleaks         |
+| test              | push / PR / manual | Si         | pytest + docker-compose  |
+| build-scan-push   | manual             | Si         | Docker + Trivy           |
+| deploy            | manual             | Si         | AWS ECS                  |
+| smoke-test        | manual             | Si         | pytest contra ECS real   |
 
 *Trivy SCA e image scan son informativos (no bloqueantes) por CVEs en la app de partida no modificable. Gitleaks es bloqueante.
 
@@ -318,6 +329,29 @@ gitGraph
    merge "feature/documentacion"
    checkout main
    merge develop tag: "v1.0"
+   checkout develop
+   branch "feature/integration-tests"
+   checkout "feature/integration-tests"
+   commit id: "tests"
+   checkout develop
+   merge "feature/integration-tests"
+   branch "fix/gitleaks-binary"
+   checkout "fix/gitleaks-binary"
+   commit id: "gitleaks"
+   checkout develop
+   merge "fix/gitleaks-binary"
+   branch "fix/cart-ci-restart"
+   checkout "fix/cart-ci-restart"
+   commit id: "cart-fix"
+   checkout develop
+   merge "fix/cart-ci-restart"
+   branch "fix/admin-dockerfile"
+   checkout "fix/admin-dockerfile"
+   commit id: "admin-fix"
+   checkout develop
+   merge "fix/admin-dockerfile"
+   checkout main
+   merge develop tag: "v1.1"
 ```
 
 - `feature/*` → PR a `develop` (revisión con segunda cuenta autorizada por el docente)
