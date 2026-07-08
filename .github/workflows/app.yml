@@ -89,13 +89,19 @@ jobs:
         run: docker compose up -d --build
 
       - name: Esperar a que el stack esté operativo
-        # depends_on en docker-compose solo espera que el contenedor ARRANQUE,
-        # no que PostgreSQL acepte conexiones. Polleamos catalog (que requiere
-        # BD lista) como señal real de que todos los servicios están conectados.
+        # depends_on solo espera que el contenedor ARRANQUE, no que Postgres
+        # acepte conexiones. Catalog (Go) tiene retry; cart (Python/psycopg2)
+        # conecta en __init__ sin retry: si arranca antes de que init-db.sql
+        # termine de crear cartdb, el contenedor queda crasheado.
+        # Solución: esperar catalog (señal de que Postgres + init están listos),
+        # reiniciar cart, y esperar que cart también responda.
         run: |
-          echo "Esperando que el stack esté listo..."
+          echo "Esperando Postgres + catalog..."
           timeout 120 bash -c 'until curl -sf http://localhost:8080/api/catalog/products; do sleep 3; done'
-          echo "Stack listo."
+          echo "Postgres listo. Reiniciando cart (puede haber crasheado antes de que cartdb existiera)..."
+          docker compose restart carts
+          timeout 60 bash -c 'until curl -sf http://localhost:8080/api/carts/warmup/items; do sleep 3; done'
+          echo "Stack completo listo."
 
       - name: Ejecutar tests de integración
         run: pytest tests/ -v --junit-xml=tests/results.xml
