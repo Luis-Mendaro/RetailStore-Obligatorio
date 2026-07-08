@@ -115,5 +115,6 @@ Aplicadas en los 7 Dockerfiles del proyecto:
 | Riesgo                                  | Impacto | Decisión           | Recomendación                          |
 |-----------------------------------------|---------|--------------------|----------------------------------------|
 | CVEs en dependencias de la app base     | Alto    | Aceptado           | Actualizar dependencias cuando sea posible |
-| Cart: no reconecta a PostgreSQL         | Medio   | Workaround manual  | Usar connection pool con `pool_pre_ping=True` |
+| Cart: health check miente al ALB — devuelve 200 aunque Postgres esté caído (hallazgo #9) | Alto | Sin mitigación en producción | `/health` debe verificar conexión y devolver 503 si falla |
+| Admin: crash al conectar a Postgres en rutas /admin/api/* (hallazgo #12) | Medio | Sin mitigación | Manejo de errores con retry y health check honesto |
 | Email SNS no entrega en entorno de lab  | Bajo    | Documentado        | Verificar con servidor de correo corporativo |

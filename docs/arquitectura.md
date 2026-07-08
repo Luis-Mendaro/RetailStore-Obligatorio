@@ -62,7 +62,7 @@ flowchart LR
 flowchart LR
     Push(["Push / PR"]) --> CodeScan["code-scan\nSemgrep SAST\nbloqueante"]
     Push --> SCA["sca-secrets\nTrivy SCA + Gitleaks\nGitleaks bloqueante"]
-    Push --> Tests["test\nmatrix 6 servicios\nbloqueante"]
+    Push --> Tests["test\ndocker-compose + pytest\nbloqueante"]
     Dispatch(["workflow_dispatch\nambiente elegido"]) --> CodeScan
     Dispatch --> SCA
     Dispatch --> Tests
@@ -71,6 +71,7 @@ flowchart LR
     Tests --> Build
     Build --> Deploy["deploy\nECS update-service\nwait services-stable"]
     Deploy --> ECS_F["AWS ECS Fargate\nambiente elegido"]
+    Deploy --> Smoke["smoke-test\npytest contra ECS real\nsolo workflow_dispatch"]
 ```
 
 ---
@@ -135,6 +136,29 @@ gitGraph
    merge "feature/documentacion"
    checkout main
    merge develop tag: "v1.0"
+   checkout develop
+   branch "feature/integration-tests"
+   checkout "feature/integration-tests"
+   commit id: "tests"
+   checkout develop
+   merge "feature/integration-tests"
+   branch "fix/gitleaks-binary"
+   checkout "fix/gitleaks-binary"
+   commit id: "gitleaks"
+   checkout develop
+   merge "fix/gitleaks-binary"
+   branch "fix/cart-ci-restart"
+   checkout "fix/cart-ci-restart"
+   commit id: "cart-fix"
+   checkout develop
+   merge "fix/cart-ci-restart"
+   branch "fix/admin-dockerfile"
+   checkout "fix/admin-dockerfile"
+   commit id: "admin-fix"
+   checkout develop
+   merge "fix/admin-dockerfile"
+   checkout main
+   merge develop tag: "v1.1"
 ```
 
 Reglas de protección de rama en `main` y `develop`:
