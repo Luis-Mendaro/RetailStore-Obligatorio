@@ -9,7 +9,9 @@ graph TD
     IGW --> PubB["Subnet pública\nus-east-1b · 10.x.2.0/24"]
     PubA --> NAT["NAT Gateway\nus-east-1a"]
     PubA --> ALB_UI[ALB — ui]
-    PubB --> ALB_Admin[ALB — admin]
+    PubB --> ALB_UI
+    PubA --> ALB_Admin[ALB — admin]
+    PubB --> ALB_Admin
     NAT --> PrivA["Subnet privada\nus-east-1a · 10.x.11.0/24"]
     NAT --> PrivB["Subnet privada\nus-east-1b · 10.x.12.0/24"]
     ALB_UI --> ECS["ECS Fargate Cluster\nui · catalog · cart · checkout\norders · admin · db · redis"]

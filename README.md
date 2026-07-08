@@ -17,7 +17,7 @@ graph TD
     UI -->|HTTP proxy| Orders["Orders :8080\nGo / Gin"]
     Checkout -->|HTTP| Orders
     Checkout --> Redis[(Redis 7)]
-    Admin["Admin :8081\nNode.js / Express"] -->|SQL| DB[(PostgreSQL 16)]
+    Admin["Admin :8080\nNode.js / Express"] -->|SQL| DB[(PostgreSQL 16)]
     Catalog -->|SQL| DB
     Cart -->|SQL| DB
     Orders -->|SQL| DB
