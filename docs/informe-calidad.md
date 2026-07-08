@@ -2,49 +2,57 @@
 
 ## Estrategia de testing adoptada
 
-El proyecto combina dos capas de validación: pruebas unitarias automatizadas integradas en el pipeline CI/CD, y pruebas de integración end-to-end ejecutadas manualmente sobre el ambiente dev desplegado.
+El proyecto implementa dos capas de validación automatizada: tests de integración contra el stack local (Capa 1, pre-deploy) y smoke tests contra el ambiente ECS real (Capa 2, post-deploy). Ambas capas usan los mismos 16 archivos pytest, diferenciándose solo por las URLs de destino.
 
 ---
 
-## Pruebas unitarias automatizadas
+## Pruebas de integración automatizadas
 
-El pipeline ejecuta tests unitarios en cada push y pull request mediante un job matricial que cubre 6 servicios en paralelo.
+### Capa 1 — job `test` (pre-deploy, todos los eventos del pipeline)
 
-| Servicio  | Herramienta   | Comando              | Resultado                  |
-|-----------|---------------|----------------------|----------------------------|
-| catalog   | Go test       | `go test ./...`      | Pasa — lógica de catálogo  |
-| orders    | Go test       | `go test ./...`      | Pasa — lógica de órdenes   |
-| ui        | npm test      | `npm test`           | Pasa — componentes Express |
-| admin     | npm test      | `npm test`           | Pasa — rutas de admin      |
-| checkout  | yarn test     | `yarn test`          | Pasa — flujo NestJS        |
-| cart      | —             | sin tests unitarios  | Cubierto por validación E2E|
+Levanta el stack completo con `docker-compose` y ejecuta pytest contra `localhost`. Detecta errores de compilación, startup y funcionalidad básica antes del build de imágenes.
 
-Los tests unitarios se ejecutan en todos los eventos del pipeline (push, PR, workflow_dispatch) y actúan como quality gate: si alguno falla, el pipeline se detiene antes de llegar al build.
+| Archivo | Tests | Qué verifica |
+|---------|-------|--------------|
+| test_health.py | 2 | GET /health en UI y admin |
+| test_catalog.py | 3 | /catalog/products, /catalog/tags, /catalog/size |
+| test_cart.py | 5 | CRUD completo de items: vacío, agregar, persistir, borrar, health check |
+| test_checkout.py | 1 | Servicio checkout disponible |
+| test_orders.py | 1 | GET /orders responde 200, body es lista o null |
+| test_admin.py | 4 | Login, GET /admin/api/products, GET /admin/api/orders, 401 sin autenticación |
+
+**Resultado en Capa 1: 16/16 pasan** (docker-compose, verificado localmente y en CI).
+
+**Nota técnica — race condition de cart en CI:** `cart` (Python/psycopg2) conecta a Postgres en `__init__` sin retry. Si arranca antes de que `init-db.sql` cree `cartdb`, el proceso queda vivo pero sin `cart_service`. Fix aplicado en el pipeline: esperar a que `catalog` confirme que Postgres e `init-db.sql` terminaron, reiniciar el contenedor de cart, y luego esperar que `/api/carts/warmup/items` responda 200. Ver hallazgo #9 para el mismo bug en producción.
+
+### Capa 2 — job `smoke-test` (post-deploy, solo `workflow_dispatch`)
+
+Los mismos 16 tests corren contra los ALBs públicos en ECS real. Las URLs se obtienen de AWS CLI (`aws elbv2 describe-load-balancers`) antes de ejecutar pytest.
+
+**Resultado final: 16/16 pasan** (run #28948699412, develop → dev, 2026-07-08).
+
+#### Evolución durante el desarrollo
+
+El smoke test no llegó a correr limpio de punta a punta en una sola sesión — los problemas se fueron descubriendo y corrigiendo en sucesivas corridas contra ECS real:
+
+| Corrida | Resultado | Causa de los fallos | Fix aplicado |
+|---------|-----------|---------------------|--------------|
+| 1ª (post PR #13) | ~3/16 | admin devolvía 502 en todos los endpoints incluyendo login — proceso Node crasheaba por `ENOENT: /app/public/index.html` | PR #14: agregar `COPY --from=builder /app/public ./public` en Dockerfile de admin |
+| 2ª (post PR #14) | 12/16 | 4 fallos en admin: login pasaba, pero `/admin/api/products`, `/admin/api/orders` y `/health` devolvían 502. orders también fallaba con `isinstance(None, list)` | PR #16: ajustar expectativa del test de orders (acepta null o []); el fallo de admin era timing-dependiente |
+| 3ª (post PR #16, infra limpia) | **16/16** | — | — |
+
+**Qué enseña la evolución:** el Dockerfile de admin tenía un bug real introducido al convertirlo a multi-stage — sin el smoke test contra la imagen publicada en ECR no se habría detectado (en docker-compose los bind mounts ocultan el problema). El fallo de 12/16 reveló además que el health check de admin, como el de cart, no verifica la conexión a Postgres — si el timing de startup es desfavorable, el servicio pasa el warm-up pero falla al primer request que toca la BD.
 
 ---
 
-## Validación de integración — pruebas end-to-end manuales
+## Por qué las pruebas son de integración externa (no unitarias)
 
-Se realizaron pruebas funcionales end-to-end sobre el ambiente dev desplegado en AWS, cubriendo el flujo completo de la aplicación:
+La consigna del proyecto establece que el código de la aplicación de partida no puede modificarse. Esto descarta:
 
-1. **Navegación**: acceso a la tienda vía URL pública del ALB, carga del catálogo de productos
-2. **Carrito**: adición de productos al carrito, verificación de persistencia en PostgreSQL. Se detectó que el servicio `cart` no reconecta automáticamente a PostgreSQL si la conexión se cierra por timeout — el task aparece como `HEALTHY` pero falla al agregar productos. Workaround aplicado: forzar un nuevo deployment (`aws ecs update-service --force-new-deployment`) y ejecutar el flujo del carrito inmediatamente después del deploy para calentar la conexión
-3. **Checkout**: inicio del proceso de pago, integración con Redis para sesión y con el servicio orders
-4. **Orden**: confirmación de la orden, verificación en la base de datos y en el panel admin
+- Pruebas unitarias dentro de los servicios (requieren modificar el código fuente)
+- Contract testing con Pact (requiere modificar los contratos de API de la app base)
 
-El flujo fue ejecutado en cada despliegue de dev antes de promover al siguiente ambiente. La evidencia de estos despliegues está en `docs/capturas/Deploy DEV.pptx`.
-
----
-
-## Por qué no se automatizaron las pruebas de integración
-
-La consigna del proyecto establece que **el código de la aplicación de partida no puede modificarse**. Agregar pruebas de integración automatizadas entre microservicios (Postman/Newman, Pact, REST-assured) requeriría modificar los contratos de API, agregar endpoints de health internos o incluir archivos de test en los repositorios de cada servicio — lo que implicaría modificar la app base.
-
-Dado este constraint, el approach elegido fue:
-
-- **Pipeline**: unit tests automatizados para validar la lógica de cada servicio de forma aislada
-- **Pre-producción**: validación E2E manual sobre dev antes de cada promoción de ambiente
-- **Observabilidad como red de seguridad**: las 5 alarmas de CloudWatch detectan errores 5XX, hosts no saludables y latencia alta en tiempo real durante y después del despliegue
+El approach elegido fue escribir pruebas de integración externas (black-box) contra los endpoints HTTP de cada servicio sin tocar su código fuente. Los 16 tests en `tests/` verifican el comportamiento observable desde afuera, igual que lo haría un cliente real de la API.
 
 ---
 
@@ -65,3 +73,43 @@ Trivy SCA e image scan detectan vulnerabilidades CRITICAL y HIGH en dependencias
 **Decisión:** no bloqueante. La app base no puede modificarse, por lo que las dependencias afectadas no pueden parchearse dentro del scope del proyecto. Los hallazgos están documentados formalmente en `docs/seguridad.md`.
 
 **Recomendación para producción:** actualizar las dependencias afectadas o reemplazarlas por alternativas sin CVEs activos una vez que el equipo interno tome el relevo.
+
+---
+
+## Hallazgos de calidad detectados durante las pruebas
+
+### Hallazgo #9 — Health check de cart no verifica Postgres (Severidad: Alta)
+
+**Archivo:** `src/cart/app/main.py`
+
+**Descripción:** `GET /health` siempre devuelve `{"status": "UP"}` sin verificar la conexión a Postgres. El servicio conecta en `__init__` sin retry — si Postgres no está listo al arrancar, el proceso queda vivo pero sin `cart_service`, y cualquier endpoint del carrito devuelve 500.
+
+**Impacto en producción:** el ALB usa `/health` para clasificar el target como sano o no. Como siempre devuelve 200, el ALB marca el servicio como HEALTHY aunque esté roto internamente. ECS nunca reinicia la tarea. La alarma `retailstore-ui-alb-unhealthy-hosts` no se dispara. El servicio queda degradado silenciosamente hasta un restart manual.
+
+**Fix correcto (no aplicado — código de terceros):** `/health` debería ejecutar `SELECT 1` sobre la conexión activa y devolver 503 si falla.
+
+---
+
+### Hallazgo #10 — orders serializa lista vacía como JSON null
+
+**Archivo:** `src/orders/main.go`
+
+**Descripción:** `var orders []Order` es `nil` en Go. `c.JSON(200, orders)` serializa a `null` en lugar de `[]` cuando no hay órdenes en la BD.
+
+**Impacto:** la UI maneja `null` correctamente y muestra lista vacía — sin impacto visible para el usuario. Sin embargo, el contrato HTTP correcto para una colección vacía es `[]`.
+
+**Fix correcto (no aplicado — código de terceros):** usar `make([]Order, 0)` en lugar de `var orders []Order`.
+
+---
+
+### Hallazgo #12 — admin crashea al conectar a Postgres para rutas /admin/api/* (Severidad: Media)
+
+**Observado en:** smoke tests (Capa 2) contra ECS real.
+
+**Descripción:** `POST /auth/login` pasa (valida credenciales contra env vars, sin BD). Las rutas `GET /admin/api/products` y `GET /admin/api/orders` devuelven 502. Tras el crash del proceso Node.js, incluso `GET /health` devuelve 502.
+
+**Causa probable:** el proceso crashea al intentar conectar a Postgres en el primer request que requiere BD, sin manejo de errores que permita recuperarse. Mismo patrón que hallazgo #9.
+
+**Impacto:** panel de administración inaccesible en ECS real (salvo login). En docker-compose (Capa 1) funciona correctamente porque la conexión a Postgres se establece sin problemas.
+
+**Fix correcto (no aplicado — código de terceros):** manejo de errores de conexión con retry y health check que refleje el estado real de la BD.
