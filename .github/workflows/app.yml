@@ -56,49 +56,66 @@ jobs:
           name: trivy-sca-report
           path: trivy-sca-results.sarif
       - name: Gitleaks
-        uses: gitleaks/gitleaks-action@v2
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # gitleaks-action@v2 requiere licencia de pago para repos privados.
+        # Usamos el binario directo para evitar esa limitación.
+        run: |
+          curl -sSfL \
+            https://github.com/gitleaks/gitleaks/releases/download/v8.26.0/gitleaks_8.26.0_linux_x64.tar.gz \
+            | tar xz -C /tmp gitleaks
+          /tmp/gitleaks detect --source . --exit-code 1
 
   test:
-    name: Tests por servicio
+    name: Tests de integración — Capa 1 (docker-compose)
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        include:
-          - service: catalog
-            path: src/catalog
-          - service: orders
-            path: src/orders
-          - service: cart
-            path: src/cart
-          - service: checkout
-            path: src/checkout
-          - service: admin
-            path: src/admin
-          - service: ui
-            path: src/ui
+    # Las variables de entorno a nivel de job quedan disponibles en TODOS
+    # los steps, incluyendo docker compose up/down y pytest.
+    env:
+      DB_PASSWORD: ${{ secrets.TF_VAR_DB_PASSWORD }}
+      ADMIN_USERNAME: ${{ secrets.TF_VAR_ADMIN_USERNAME }}
+      ADMIN_PASSWORD: ${{ secrets.TF_VAR_ADMIN_PASSWORD }}
+      ADMIN_JWT_SECRET: ${{ secrets.TF_VAR_ADMIN_JWT_SECRET }}
+      UI_URL: http://localhost:8080
+      ADMIN_URL: http://localhost:8081
     steps:
       - uses: actions/checkout@v4
-      - if: matrix.service == 'catalog' || matrix.service == 'orders'
-        uses: actions/setup-go@v5
+
+      - name: Instalar Python y dependencias de test
+        uses: actions/setup-python@v5
         with:
-          go-version: "1.24"
-      - if: matrix.service == 'catalog' || matrix.service == 'orders'
-        run: go test ./...
-        working-directory: ${{ matrix.path }}
-      - if: matrix.service == 'checkout' || matrix.service == 'admin' || matrix.service == 'ui'
-        uses: actions/setup-node@v4
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+
+      - name: Levantar stack completo con docker-compose
+        run: docker compose up -d --build
+
+      - name: Esperar a que el stack esté operativo
+        # depends_on solo espera que el contenedor ARRANQUE, no que Postgres
+        # acepte conexiones. Catalog (Go) tiene retry; cart (Python/psycopg2)
+        # conecta en __init__ sin retry: si arranca antes de que init-db.sql
+        # termine de crear cartdb, el contenedor queda crasheado.
+        # Solución: esperar catalog (señal de que Postgres + init están listos),
+        # reiniciar cart, y esperar que cart también responda.
+        run: |
+          echo "Esperando Postgres + catalog..."
+          timeout 120 bash -c 'until curl -sf http://localhost:8080/api/catalog/products; do sleep 3; done'
+          echo "Postgres listo. Reiniciando cart (puede haber crasheado antes de que cartdb existiera)..."
+          docker compose restart carts
+          timeout 60 bash -c 'until curl -sf http://localhost:8080/api/carts/warmup/items; do sleep 3; done'
+          echo "Stack completo listo."
+
+      - name: Ejecutar tests de integración
+        run: pytest tests/ -v --junit-xml=tests/results.xml
+
+      - name: Subir resultados
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          node-version: "22"
-      - if: matrix.service == 'admin' || matrix.service == 'ui'
-        run: npm install && npm test --if-present
-        working-directory: ${{ matrix.path }}
-      - if: matrix.service == 'checkout'
-        run: corepack enable && yarn install --no-immutable && yarn test
-        working-directory: ${{ matrix.path }}
-      - if: matrix.service == 'cart'
-        run: echo "sin tests unitarios todavia, cubierto por las pruebas funcionales del pipeline (ver Dia 5)"
+          name: test-results-capa1
+          path: tests/results.xml
+
+      - name: Bajar stack y limpiar volúmenes
+        if: always()
+        run: docker compose down -v
 
   build-scan-push:
     name: Build, image scan y push a ECR
@@ -200,3 +217,56 @@ jobs:
           aws ecs wait services-stable \
             --cluster retailstore-${{ env.ENVIRONMENT }} \
             --services ${{ matrix.service }}
+
+  smoke-test:
+    name: Smoke Tests — Capa 2 (ECS real)
+    if: github.event_name == 'workflow_dispatch'
+    # needs: [deploy] espera que TODAS las combinaciones del matrix de deploy
+    # terminen antes de arrancar — no solo una, sino los 7 servicios.
+    needs: [deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Instalar Python y dependencias de test
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r tests/requirements.txt
+
+      - name: Configurar credenciales AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-session-token: ${{ secrets.AWS_SESSION_TOKEN }}
+          aws-region: us-east-1
+
+      - name: Obtener URLs públicas de los ALBs
+        # Usamos AWS CLI en lugar de terraform output para evitar un terraform
+        # init completo. Los nombres de los ALBs son fijos (ui-alb, admin-alb).
+        # Los valores quedan disponibles como env vars en todos los steps siguientes.
+        run: |
+          echo "UI_URL=http://$(aws elbv2 describe-load-balancers \
+            --names ui-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)" >> $GITHUB_ENV
+          echo "ADMIN_URL=http://$(aws elbv2 describe-load-balancers \
+            --names admin-alb \
+            --query 'LoadBalancers[0].DNSName' \
+            --output text)" >> $GITHUB_ENV
+
+      - name: Ejecutar smoke tests contra ECS
+        # UI_URL y ADMIN_URL vienen del step anterior vía $GITHUB_ENV.
+        # ADMIN_USERNAME y ADMIN_PASSWORD son los mismos secrets que usa el deploy.
+        run: pytest tests/ -v --junit-xml=tests/smoke-results.xml
+        env:
+          ADMIN_USERNAME: ${{ secrets.TF_VAR_ADMIN_USERNAME }}
+          ADMIN_PASSWORD: ${{ secrets.TF_VAR_ADMIN_PASSWORD }}
+
+      - name: Subir resultados
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-test-results-capa2
+          path: tests/smoke-results.xml
