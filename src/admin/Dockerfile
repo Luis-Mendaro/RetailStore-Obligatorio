@@ -15,6 +15,7 @@ RUN addgroup -S app && adduser -S app -G app
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/public ./public
 COPY package*.json ./
 ENV PORT=8080
 USER app
