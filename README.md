@@ -36,6 +36,15 @@ graph TD
 
 ---
 
+## Decisiones técnicas y hallazgos
+
+- [docs/arquitectura.md](docs/arquitectura.md) — diagramas de red, ALB público vs interno, módulos Terraform
+- [docs/decisiones.md](docs/decisiones.md) — 9 ADRs: por qué ECS y no EKS, por qué ALB interno para servicios de backend, por qué Trivy no bloqueante
+- [docs/informe-calidad.md](docs/informe-calidad.md) — evolución del testing: de no-ops a 16 tests reales; health checks que reportaban HEALTHY mientras el servicio estaba caído — detectado, diagnosticado y documentado
+- [docs/seguridad.md](docs/seguridad.md) — quality gates, CVEs documentados, riesgos con severidad
+
+---
+
 ## Infraestructura en nube (AWS)
 
 ```mermaid
