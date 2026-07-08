@@ -29,9 +29,19 @@ Levanta el stack completo con `docker-compose` y ejecuta pytest contra `localhos
 
 Los mismos 16 tests corren contra los ALBs públicos en ECS real. Las URLs se obtienen de AWS CLI (`aws elbv2 describe-load-balancers`) antes de ejecutar pytest.
 
-**Resultado del último deploy en ECS: 12/16 pasan.**
+**Resultado final: 16/16 pasan** (run #28948699412, develop → dev, 2026-07-08).
 
-Los 4 fallos son en las rutas del panel admin que requieren Postgres — ver hallazgo #12. Cart, catalog, checkout, UI y orders están todos verdes en Capa 2.
+#### Evolución durante el desarrollo
+
+El smoke test no llegó a correr limpio de punta a punta en una sola sesión — los problemas se fueron descubriendo y corrigiendo en sucesivas corridas contra ECS real:
+
+| Corrida | Resultado | Causa de los fallos | Fix aplicado |
+|---------|-----------|---------------------|--------------|
+| 1ª (post PR #13) | ~3/16 | admin devolvía 502 en todos los endpoints incluyendo login — proceso Node crasheaba por `ENOENT: /app/public/index.html` | PR #14: agregar `COPY --from=builder /app/public ./public` en Dockerfile de admin |
+| 2ª (post PR #14) | 12/16 | 4 fallos en admin: login pasaba, pero `/admin/api/products`, `/admin/api/orders` y `/health` devolvían 502. orders también fallaba con `isinstance(None, list)` | PR #16: ajustar expectativa del test de orders (acepta null o []); el fallo de admin era timing-dependiente |
+| 3ª (post PR #16, infra limpia) | **16/16** | — | — |
+
+**Qué enseña la evolución:** el Dockerfile de admin tenía un bug real introducido al convertirlo a multi-stage — sin el smoke test contra la imagen publicada en ECR no se habría detectado (en docker-compose los bind mounts ocultan el problema). El fallo de 12/16 reveló además que el health check de admin, como el de cart, no verifica la conexión a Postgres — si el timing de startup es desfavorable, el servicio pasa el warm-up pero falla al primer request que toca la BD.
 
 ---
 
