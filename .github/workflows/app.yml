@@ -256,6 +256,19 @@ jobs:
             --query 'LoadBalancers[0].DNSName' \
             --output text)" >> $GITHUB_ENV
 
+      - name: Esperar que los servicios estén listos
+        # wait services-stable solo garantiza que ECS marcó el task como RUNNING.
+        # Los servicios que dependen de Postgres (catalog vía GORM, admin, cart)
+        # pueden necesitar más tiempo para conectar y crear sus esquemas.
+        # Catalog es la señal: cuando responde 200, la migración GORM terminó
+        # y admin (que lee de catalogdb) también puede arrancar sin crash.
+        run: |
+          echo "Esperando que catalog esté listo..."
+          timeout 180 bash -c 'until curl -sf "$UI_URL/api/catalog/products" >/dev/null 2>&1; do sleep 5; done'
+          echo "Esperando que admin esté disponible..."
+          timeout 120 bash -c 'until curl -sf "$ADMIN_URL/health" >/dev/null 2>&1; do sleep 5; done'
+          echo "Servicios listos."
+
       - name: Ejecutar smoke tests contra ECS
         # UI_URL y ADMIN_URL vienen del step anterior vía $GITHUB_ENV.
         # ADMIN_USERNAME y ADMIN_PASSWORD son los mismos secrets que usa el deploy.
